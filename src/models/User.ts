@@ -6,7 +6,6 @@ export type UserStatus = 'pending' | 'pending_assignment' | 'under_review' | 'ap
 export interface IUser extends Document {
   fullName: string;
   mobile: string;
-  whatsapp?: string;
   email?: string;
   password?: string;
   role: UserRole;
@@ -53,7 +52,6 @@ const UserSchema: Schema = new Schema(
   {
     fullName: { type: String, required: true },
     mobile: { type: String, required: true, unique: true },
-    whatsapp: { type: String },
     email: { type: String, sparse: true },
     password: { type: String },
     role: { 

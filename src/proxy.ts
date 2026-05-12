@@ -11,8 +11,9 @@ export async function proxy(request: NextRequest) {
   const token = request.cookies.get('token')?.value;
 
   // Define route protections
-  const isAuthPage = pathname.startsWith('/login') || pathname.startsWith('/register');
-  const isAdminPage = pathname.startsWith('/admin');
+  const isAdminLoginPage = pathname === '/admin/login';
+  const isAuthPage = pathname.startsWith('/login') || pathname.startsWith('/register') || isAdminLoginPage;
+  const isAdminPage = pathname.startsWith('/admin') && !isAdminLoginPage;
   const isVendorPage = pathname.startsWith('/vendor');
   const isSubVendorPage = pathname.startsWith('/sub-vendor');
   const isEmployeePage = pathname.startsWith('/employee');

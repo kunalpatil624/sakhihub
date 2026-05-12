@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
     await dbConnect();
     const body = await req.json();
     const { 
-      fullName, mobile, whatsapp, email, password, role, 
+      fullName, mobile, email, password, role, 
       designation, qualification, experience, state, district, 
       block, area, pincode, address, assignedEmployeeId,
       age, maritalStatus, occupation, interests,
@@ -113,7 +113,6 @@ export async function POST(req: NextRequest) {
     const userToCreate: any = {
       fullName,
       mobile,
-      whatsapp,
       email,
       password: hashedPassword,
       role: userRole,

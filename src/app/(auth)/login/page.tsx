@@ -23,10 +23,16 @@ function LoginContent() {
   });
 
   useEffect(() => {
+    // If redirected here with an admin callbackUrl, send to admin login page
+    const callbackUrl = searchParams.get('callbackUrl');
+    if (callbackUrl && callbackUrl.startsWith('/admin')) {
+      router.replace('/admin/login');
+      return;
+    }
     if (searchParams.get('registered')) {
       setSuccess("Registration successful! Please login.");
     }
-  }, [searchParams]);
+  }, [searchParams, router]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });

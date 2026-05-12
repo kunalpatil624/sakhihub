@@ -40,7 +40,6 @@ export default function RegisterForm() {
     role: "",
     fullName: "",
     mobile: "",
-    whatsapp: "",
     email: "",
     designation: "",
     qualification: "",
@@ -441,13 +440,6 @@ export default function RegisterForm() {
 
                     {formData.role === 'employee' && (
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">
-                        <div className="flex flex-col gap-2">
-                          <label className="text-sm font-black text-gray-700">WhatsApp No</label>
-                          <div className="relative">
-                            <MessageCircle size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
-                            <input type="tel" name="whatsapp" value={formData.whatsapp} onChange={handleChange} placeholder="WhatsApp No" className="w-full pl-12 pr-4 py-3 md:py-4 rounded-2xl border border-gray-100 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary/20" />
-                          </div>
-                        </div>
                         <div className="flex flex-col gap-2">
                           <label className="text-sm font-black text-gray-700">Apply For</label>
                           <div className="relative">

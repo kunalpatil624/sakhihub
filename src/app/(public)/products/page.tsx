@@ -99,13 +99,10 @@ export default function ProductsPage() {
                     ))}
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-auto">
-                    <a href="https://wa.me/918076611842" className="flex items-center justify-center gap-3 bg-secondary/5 text-secondary hover:bg-secondary hover:text-white py-5 rounded-2xl font-bold text-sm sm:text-base transition-all border border-secondary/10">
-                      <MessageCircle size={20} /> WhatsApp
-                    </a>
-                    <a href="tel:8076611842" className="flex items-center justify-center gap-3 bg-primary text-white hover:bg-primary/90 py-5 rounded-2xl font-bold text-sm sm:text-base shadow-xl shadow-primary/20 transition-all">
-                      <Phone size={20} /> Call Now
-                    </a>
+                  <div className="mt-auto">
+                    <Link href="/contact" className="flex items-center justify-center gap-3 bg-primary text-white hover:bg-primary/90 py-5 rounded-2xl font-bold text-sm sm:text-base shadow-xl shadow-primary/20 transition-all">
+                      <Info size={20} /> Inquiry for Purchase
+                    </Link>
                   </div>
                 </div>
               </motion.div>

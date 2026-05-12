@@ -134,7 +134,6 @@ export default function HierarchyDetailView({ data, onClose, onStatusUpdate }: H
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {[
                       { label: 'Mobile', value: user.mobile, icon: Phone },
-                      { label: 'WhatsApp', value: user.whatsapp || 'N/A', icon: Phone },
                       { label: 'Email', value: user.email || 'N/A', icon: Mail },
                       { label: 'Joined', value: new Date(user.createdAt).toLocaleDateString(), icon: Calendar },
                       { label: 'Area', value: `${user.block || 'All Blocks'}, ${user.district}`, icon: MapPin },

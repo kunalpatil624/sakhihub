@@ -33,7 +33,6 @@ export default function RegisterPartnerModal({
   const [formData, setFormData] = useState({
     fullName: '',
     mobile: '',
-    whatsapp: '',
     email: '',
     password: 'Password@123',
     role: role,
@@ -191,21 +190,6 @@ export default function RegisterPartnerModal({
               </div>
             </div>
 
-            <div className="space-y-2">
-              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">WhatsApp Number</label>
-              <div className="relative group">
-                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-primary transition-colors">
-                  <Phone size={18} />
-                </div>
-                <input 
-                  type="tel" 
-                  value={formData.whatsapp}
-                  onChange={(e) => setFormData({...formData, whatsapp: e.target.value})}
-                  placeholder="WhatsApp (Optional)"
-                  className="w-full pl-12 pr-5 py-4 bg-gray-50 border border-gray-100 rounded-2xl font-bold focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all"
-                />
-              </div>
-            </div>
 
             <div className="space-y-2">
               <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Email Address</label>
