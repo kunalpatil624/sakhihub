@@ -4,24 +4,40 @@ import React, { useState, useEffect } from "react";
 import DashboardLayout from "@/components/features/dashboard/DashboardLayout";
 import { Briefcase, Search, Plus, MapPin, Phone, Mail, ExternalLink, ShieldCheck, ClipboardList } from "lucide-react";
 import axios from "axios";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
+import RegisterPartnerModal from "@/components/features/dashboard/RegisterPartnerModal";
 
 export default function VendorEmployees() {
   const [employees, setEmployees] = useState<any[]>([]);
+  const [vendorProfile, setVendorProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [showRegisterModal, setShowRegisterModal] = useState(false);
+
+  const fetchEmployees = async () => {
+    try {
+      const res = await axios.get('/api/vendor/employees');
+      if (res.data.success) setEmployees(res.data.data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const fetchProfile = async () => {
+    try {
+      const res = await axios.get('/api/auth/me');
+      if (res.data.success) setVendorProfile(res.data.data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   useEffect(() => {
-    const fetchEmployees = async () => {
-      try {
-        const res = await axios.get('/api/vendor/employees');
-        if (res.data.success) setEmployees(res.data.data);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
+    const init = async () => {
+      setLoading(true);
+      await Promise.all([fetchEmployees(), fetchProfile()]);
+      setLoading(false);
     };
-    fetchEmployees();
+    init();
   }, []);
 
   return (
@@ -32,7 +48,10 @@ export default function VendorEmployees() {
             <h1 className="text-3xl md:text-4xl font-black text-secondary">Field Force</h1>
             <p className="text-gray-400 font-bold mt-1 uppercase tracking-widest text-xs">Manage all field employees operating within your network</p>
           </div>
-          <button className="btn-primary py-4 px-8 shadow-xl shadow-primary/20">
+          <button 
+            onClick={() => setShowRegisterModal(true)}
+            className="btn-primary py-4 px-8 shadow-xl shadow-primary/20"
+          >
             <Plus size={20} /> Add Field Staff
           </button>
         </header>
@@ -110,6 +129,14 @@ export default function VendorEmployees() {
             </table>
           </div>
         </div>
+        <RegisterPartnerModal 
+          isOpen={showRegisterModal}
+          onClose={() => setShowRegisterModal(false)}
+          onSuccess={() => fetchEmployees()}
+          role="employee"
+          parentVendorId={vendorProfile?._id}
+          vendorCode={vendorProfile?.vendorCode}
+        />
       </div>
     </DashboardLayout>
   );

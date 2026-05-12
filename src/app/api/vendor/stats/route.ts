@@ -15,6 +15,7 @@ export async function GET(req: NextRequest) {
     }
 
     await dbConnect();
+    const _Campaign = Campaign; // Ensure registration
     const vendorId = (session as any).id;
     const user = await User.findById(vendorId);
 

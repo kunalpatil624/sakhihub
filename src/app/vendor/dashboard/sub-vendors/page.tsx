@@ -4,24 +4,40 @@ import React, { useState, useEffect } from "react";
 import DashboardLayout from "@/components/features/dashboard/DashboardLayout";
 import { Sparkles, Search, Plus, MapPin, Phone, Mail, ExternalLink, ShieldCheck } from "lucide-react";
 import axios from "axios";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
+import RegisterPartnerModal from "@/components/features/dashboard/RegisterPartnerModal";
 
 export default function VendorSubVendors() {
   const [subVendors, setSubVendors] = useState<any[]>([]);
+  const [vendorProfile, setVendorProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [showRegisterModal, setShowRegisterModal] = useState(false);
+
+  const fetchSubVendors = async () => {
+    try {
+      const res = await axios.get('/api/vendor/sub-vendors');
+      if (res.data.success) setSubVendors(res.data.data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const fetchProfile = async () => {
+    try {
+      const res = await axios.get('/api/auth/me');
+      if (res.data.success) setVendorProfile(res.data.data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   useEffect(() => {
-    const fetchSubVendors = async () => {
-      try {
-        const res = await axios.get('/api/vendor/sub-vendors');
-        if (res.data.success) setSubVendors(res.data.data);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
+    const init = async () => {
+      setLoading(true);
+      await Promise.all([fetchSubVendors(), fetchProfile()]);
+      setLoading(false);
     };
-    fetchSubVendors();
+    init();
   }, []);
 
   return (
@@ -32,7 +48,10 @@ export default function VendorSubVendors() {
             <h1 className="text-3xl md:text-4xl font-black text-secondary">My Sub-Vendors</h1>
             <p className="text-gray-400 font-bold mt-1 uppercase tracking-widest text-xs">Manage your secondary partner network and regional leads</p>
           </div>
-          <button className="btn-primary py-4 px-8 shadow-xl shadow-primary/20">
+          <button 
+            onClick={() => setShowRegisterModal(true)}
+            className="btn-primary py-4 px-8 shadow-xl shadow-primary/20"
+          >
             <Plus size={20} /> Register New Sub-Vendor
           </button>
         </header>
@@ -104,6 +123,14 @@ export default function VendorSubVendors() {
             </table>
           </div>
         </div>
+        <RegisterPartnerModal 
+          isOpen={showRegisterModal}
+          onClose={() => setShowRegisterModal(false)}
+          onSuccess={() => fetchSubVendors()}
+          role="sub_vendor"
+          parentVendorId={vendorProfile?._id}
+          vendorCode={vendorProfile?.vendorCode}
+        />
       </div>
     </DashboardLayout>
   );
