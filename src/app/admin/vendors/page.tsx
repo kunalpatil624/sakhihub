@@ -97,9 +97,12 @@ export default function VendorManagement() {
     }
   };
 
-  const handleStatusUpdate = async (id: string, newStatus: string) => {
+  const handleStatusUpdate = async (id: string, newStatus: string, remarks?: string) => {
     try {
-      const res = await axios.patch(`/api/admin/employees/${id}/status`, { status: newStatus });
+      const res = await axios.patch(`/api/admin/employees/${id}/status`, { 
+        status: newStatus,
+        remarks 
+      });
       if (res.data.success) {
         if (newStatus.startsWith('doc:')) {
           // Document update: Refresh hierarchy data for the current detail view
