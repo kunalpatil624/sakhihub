@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { 
-  ShieldCheck, CheckCircle2, Clock, LogOut, FileCheck, AlertCircle
+  ShieldCheck, CheckCircle2, Clock, LogOut, FileCheck, AlertCircle, Network
 } from 'lucide-react';
 import axios from 'axios';
 import { useRouter } from 'next/navigation';
@@ -11,9 +11,9 @@ import DocumentCard from '@/components/features/dashboard/DocumentCard';
 import { useDocumentFlow } from '@/hooks/useDocumentFlow';
 
 const steps = [
-  { id: 1, name: 'Basic Info', status: 'completed' },
-  { id: 2, name: 'Document Upload', status: 'current' },
-  { id: 3, name: 'Admin Verification', status: 'upcoming' },
+  { id: 1, name: 'Registration', status: 'completed' },
+  { id: 2, name: 'Doc Verification', status: 'current' },
+  { id: 3, name: 'Hierarchy Mapping', status: 'upcoming' },
   { id: 4, name: 'Dashboard Access', status: 'upcoming' },
 ];
 
@@ -31,7 +31,7 @@ export default function SubVendorOnboarding() {
       const res = await axios.get('/api/auth/me');
       if (res.data.success) {
         setProfile(res.data.data);
-        if (['active', 'approved'].includes(res.data.data.status) && res.data.data.dashboardAccess) {
+        if (['active', 'approved'].includes(res.data.data.status) && res.data.data.dashboardAccess && res.data.data.assignmentStatus === 'completed') {
           router.push('/sub-vendor/dashboard');
         }
       }
@@ -87,12 +87,13 @@ export default function SubVendorOnboarding() {
           {steps.map((step) => (
             <div key={step.id} className="relative z-10 flex flex-col items-center gap-3">
               <div className={`w-10 h-10 rounded-full flex items-center justify-center text-xs font-black transition-all duration-500 ${
-                ['active', 'approved'].includes(profile?.status) ? 'bg-green-500 text-white' :
+                ['active', 'approved'].includes(profile?.status) && step.id <= 2 ? 'bg-green-500 text-white' :
                 step.id === 1 ? 'bg-green-500 text-white' :
                 step.id === 2 ? 'bg-primary text-white ring-8 ring-primary/10' :
+                profile?.assignmentStatus === 'completed' && step.id === 3 ? 'bg-green-500 text-white' :
                 'bg-white text-gray-300 border-2 border-gray-100'
               }`}>
-                {step.id < 2 || ['active', 'approved'].includes(profile?.status) ? <CheckCircle2 size={18} /> : step.id}
+                {step.id === 1 || (step.id === 2 && ['active', 'approved'].includes(profile?.status)) || (step.id === 3 && profile?.assignmentStatus === 'completed') ? <CheckCircle2 size={18} /> : step.id}
               </div>
               <span className={`text-[10px] font-black uppercase tracking-widest ${step.id === 2 ? 'text-primary' : 'text-gray-400'}`}>
                 {step.name}
@@ -124,43 +125,42 @@ export default function SubVendorOnboarding() {
           <div className="space-y-8">
             <div className="bg-secondary-dark p-10 rounded-[40px] text-white shadow-2xl relative overflow-hidden">
                <div className="absolute top-[-50px] right-[-50px] w-40 h-40 bg-primary/20 rounded-full blur-3xl"></div>
-               <h4 className="text-2xl font-black mb-6 relative z-10">Verification Status</h4>
+               <h4 className="text-2xl font-black mb-6 relative z-10">Onboarding Status</h4>
                
                <div className="space-y-6 relative z-10">
                  <div className="flex items-center gap-4">
-                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${compliance.uploaded === compliance.total ? 'bg-green-500' : 'bg-white/10'}`}>
-                      <FileCheck size={24} />
+                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${['active', 'approved'].includes(profile?.status) ? 'bg-green-500' : profile?.status === 'pending' ? 'bg-white/10' : 'bg-amber-500'}`}>
+                      <ShieldCheck size={24} />
                     </div>
                     <div>
-                      <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Documents</p>
-                      <p className="font-bold text-sm">{compliance.uploaded === compliance.total ? 'All Uploaded' : 'Pending Uploads'}</p>
-                    </div>
-                 </div>
-
-                 <div className="flex items-center gap-4">
-                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${['documents_uploaded', 'under_review'].includes(profile?.status) ? 'bg-amber-500 animate-pulse' : profile?.status === 'reupload_required' ? 'bg-red-500' : profile?.status === 'approved' ? 'bg-green-500' : profile?.status === 'active' ? 'bg-green-500' : 'bg-white/10'}`}>
-                      <Clock size={24} />
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Admin Review</p>
+                      <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Step 1: Verification</p>
                       <p className="font-bold text-sm">
-                        {profile?.status === 'documents_uploaded' ? 'Submitted' :
-                         profile?.status === 'under_review' ? 'In Progress' :
-                         profile?.status === 'reupload_required' ? 'Re-upload Req' :
-                         profile?.status === 'approved' ? 'Compliance Approved' :
-                         profile?.status === 'active' ? 'Compliance Verified' :
-                         'Waiting'}
+                        {['active', 'approved'].includes(profile?.status) ? 'Docs Verified' : 
+                         profile?.status === 'reupload_required' ? 'Action Required' :
+                         'In Progress'}
                       </p>
                     </div>
                  </div>
 
                  <div className="flex items-center gap-4">
-                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${['active', 'approved'].includes(profile?.status) && profile?.dashboardAccess ? 'bg-green-500' : 'bg-white/10'}`}>
-                      <ShieldCheck size={24} />
+                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${profile?.assignmentStatus === 'completed' ? 'bg-green-500' : 'bg-white/10'}`}>
+                      <Network size={24} />
                     </div>
                     <div>
-                      <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Final Approval</p>
-                      <p className="font-bold text-sm">{['active', 'approved'].includes(profile?.status) && profile?.dashboardAccess ? 'Access Granted' : 'Pending Approval'}</p>
+                      <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Step 2: Mapping</p>
+                      <p className="font-bold text-sm">
+                        {profile?.assignmentStatus === 'completed' ? 'Hierarchy Set' : 'Awaiting Admin'}
+                      </p>
+                    </div>
+                 </div>
+
+                 <div className="flex items-center gap-4">
+                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${profile?.dashboardAccess && profile?.assignmentStatus === 'completed' ? 'bg-green-500' : 'bg-white/10'}`}>
+                      <CheckCircle2 size={24} />
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Step 3: Access</p>
+                      <p className="font-bold text-sm">{profile?.dashboardAccess && profile?.assignmentStatus === 'completed' ? 'Dashboard Open' : 'Locked'}</p>
                     </div>
                  </div>
                </div>

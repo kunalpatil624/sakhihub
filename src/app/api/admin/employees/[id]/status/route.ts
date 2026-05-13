@@ -5,7 +5,8 @@ import { errorResponse, successResponse } from '@/utils/response';
 import User from '@/models/User';
 import { 
   REQUIRED_DOCS_BY_ROLE, 
-  determineUserStatus 
+  determineUserStatus,
+  areAllDocsApproved
 } from '@/lib/docs/service';
 
 export async function PATCH(
@@ -38,17 +39,22 @@ export async function PATCH(
       if (status === 'active') {
         updateData.isVerified = true;
         
-        // STRICT SUB-VENDOR RULE: Dashboard access requires BOTH document approval AND hierarchy assignment
-        if (userToUpdate.role === 'sub_vendor') {
-           if (userToUpdate.assignmentStatus === 'completed' && userToUpdate.parentVendorId) {
+        // STRICT ACCESS RULE: Sub-vendors and Employees require BOTH document approval AND hierarchy assignment
+        if (['sub_vendor', 'employee'].includes(userToUpdate.role)) {
+           // Check actual documentsVerified flag or re-verify
+           const allDocsOk = areAllDocsApproved(userToUpdate);
+           if (allDocsOk && userToUpdate.assignmentStatus === 'completed' && userToUpdate.parentVendorId) {
              updateData.dashboardAccess = true;
+             updateData.documentsVerified = true;
            } else {
-             // Mark as active but keep dashboard blocked until assigned
+             // Mark as active but keep dashboard blocked until BOTH conditions are met
              updateData.dashboardAccess = false;
+             updateData.documentsVerified = allDocsOk;
            }
         } else {
            // Vendors and other roles get immediate access on activation
            updateData.dashboardAccess = true;
+           updateData.documentsVerified = true;
         }
       } else {
         updateData.dashboardAccess = false;
@@ -93,6 +99,16 @@ export async function PATCH(
 
       // Auto-determine overall user status based on all doc statuses via Service
       user.status = determineUserStatus(user);
+      
+      // Sync documentsVerified flag based on overall compliance
+      user.documentsVerified = areAllDocsApproved(user);
+
+      // DUAL-GATE ACCESS LOGIC:
+      // If all docs are approved AND hierarchy is already set (e.g. via referral),
+      // we can automatically unlock dashboard access.
+      if (user.documentsVerified && user.assignmentStatus === 'completed' && ['active', 'approved', 'documents_uploaded'].includes(user.status)) {
+         user.dashboardAccess = true;
+      }
       
       user.markModified('documents');
       await user.save();

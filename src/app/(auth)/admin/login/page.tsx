@@ -2,11 +2,13 @@
 
 import React, { useState } from "react";
 import { ShieldCheck, Lock, Phone, AlertCircle, Sparkles } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import axios from "axios";
+import { Suspense } from "react";
 
-export default function AdminLoginPage() {
+function AdminLoginContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [formData, setFormData] = useState({
@@ -30,7 +32,12 @@ export default function AdminLoginPage() {
       });
 
       if (response.data.success) {
-        router.push('/admin/dashboard');
+        const callbackUrl = searchParams.get('callbackUrl');
+        if (callbackUrl && callbackUrl.startsWith('/admin')) {
+          window.location.href = decodeURIComponent(callbackUrl);
+        } else {
+          window.location.href = '/admin/dashboard';
+        }
       }
     } catch (err: any) {
       setError(err.response?.data?.message || "Invalid Admin Credentials");
@@ -58,16 +65,16 @@ export default function AdminLoginPage() {
 
         <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            <label style={{ fontSize: '0.95rem', fontWeight: '800', color: '#cbd5e1' }}>Admin Identifier</label>
+            <label style={{ fontSize: '0.95rem', fontWeight: '800', color: '#cbd5e1' }}>Admin Email or Mobile</label>
             <div style={{ position: 'relative' }}>
-              <Phone size={18} style={{ position: 'absolute', left: '15px', top: '50%', transform: 'translateY(-50%)', color: '#64748b' }} />
+              <ShieldCheck size={18} style={{ position: 'absolute', left: '15px', top: '50%', transform: 'translateY(-50%)', color: '#64748b' }} />
               <input
                 required
                 name="identifier"
                 value={formData.identifier}
                 onChange={handleChange}
                 type="text"
-                placeholder="Mobile or Email"
+                placeholder="Enter Email or Mobile"
                 style={{ padding: '16px 16px 16px 50px', borderRadius: '15px', border: '1px solid #334155', width: '100%', fontSize: '1rem', background: '#0f172a', color: 'white' }}
               />
             </div>
@@ -114,5 +121,13 @@ export default function AdminLoginPage() {
         </p>
       </div>
     </div>
+  );
+}
+
+export default function AdminLoginPage() {
+  return (
+    <Suspense fallback={<div style={{ minHeight: '100vh', background: '#0f172a', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#38bdf8' }}>Loading...</div>}>
+      <AdminLoginContent />
+    </Suspense>
   );
 }

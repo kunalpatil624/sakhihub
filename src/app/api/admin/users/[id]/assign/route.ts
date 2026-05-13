@@ -36,9 +36,10 @@ export async function PATCH(
     if (subVendorCode) updateData.subVendorCode = subVendorCode;
 
     // AUTO-UNLOCK RULE: 
-    // If the user is a sub-vendor and has already been "activated" by admin (status is 'active' or 'approved'),
-    // completing the hierarchy assignment should now automatically unlock dashboard access.
-    if (userToUpdate.role === 'sub_vendor' && ['active', 'approved'].includes(userToUpdate.status)) {
+    // If the user is a sub-vendor or employee and has already been "activated" by admin 
+    // (status is 'active' or 'approved'), completing the hierarchy assignment should 
+    // now automatically unlock dashboard access.
+    if (['sub_vendor', 'employee'].includes(userToUpdate.role) && ['active', 'approved'].includes(userToUpdate.status)) {
        updateData.dashboardAccess = true;
     }
 

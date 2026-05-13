@@ -7,7 +7,8 @@ import {
   UserPlus, 
   ShieldAlert, 
   RefreshCcw, 
-  LogOut 
+  LogOut,
+  ShieldCheck
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import axios from "axios";
@@ -96,26 +97,26 @@ export default function PendingAssignmentPage() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-16">
           <div className="p-6 bg-white rounded-[32px] border border-gray-100 shadow-sm flex flex-col items-center gap-3">
             <div className="w-10 h-10 bg-green-100 text-green-600 rounded-xl flex items-center justify-center">
-              <UserPlus size={20} />
+              <ShieldCheck size={20} />
             </div>
-            <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Registration</p>
-            <p className="text-sm font-bold text-secondary">Completed</p>
+            <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Step 1</p>
+            <p className="text-sm font-bold text-secondary">Docs Verified</p>
           </div>
 
           <div className="p-6 bg-white rounded-[32px] border border-gray-100 shadow-sm flex flex-col items-center gap-3 ring-2 ring-primary/20">
             <div className="w-10 h-10 bg-primary/10 text-primary rounded-xl flex items-center justify-center animate-pulse">
-              <RefreshCcw size={20} />
+              <Network size={20} />
             </div>
-            <p className="text-[10px] font-black uppercase tracking-widest text-primary">Hierarchy</p>
-            <p className="text-sm font-bold text-secondary">In Progress</p>
+            <p className="text-[10px] font-black uppercase tracking-widest text-primary">Step 2</p>
+            <p className="text-sm font-bold text-secondary">Hierarchy Mapping</p>
           </div>
 
           <div className="p-6 bg-white rounded-[32px] border border-gray-100 shadow-sm flex flex-col items-center gap-3 opacity-50">
             <div className="w-10 h-10 bg-gray-100 text-gray-400 rounded-xl flex items-center justify-center">
               <RefreshCcw size={20} />
             </div>
-            <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Dashboard</p>
-            <p className="text-sm font-bold text-secondary">Locked</p>
+            <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Step 3</p>
+            <p className="text-sm font-bold text-secondary">Dashboard Access</p>
           </div>
         </div>
 

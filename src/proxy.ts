@@ -30,29 +30,34 @@ export async function proxy(request: NextRequest) {
   if (isAuthPage && token) {
     try {
       const { payload }: any = await jwtVerify(token, JWT_SECRET);
-      
+
       // Strict Role & Status Redirects
       if (payload.role === 'super_admin') return NextResponse.redirect(new URL('/admin/dashboard', request.url));
-      
+
       if (payload.role === 'vendor') {
         const dest = payload.dashboardAccess ? '/vendor/dashboard' : '/vendor/onboarding';
         return NextResponse.redirect(new URL(dest, request.url));
       }
-      
+
       if (payload.role === 'sub_vendor') {
-        // Sub-vendor must have BOTH dashboardAccess AND completed assignment
         if (payload.dashboardAccess && payload.assignmentStatus === 'completed') {
           return NextResponse.redirect(new URL('/sub-vendor/dashboard', request.url));
         }
-        // If they have dashboardAccess (docs approved) but NO assignment, send to pending-assignment
-        if (payload.dashboardAccess && payload.assignmentStatus !== 'completed') {
+        if (payload.documentsVerified && payload.assignmentStatus !== 'completed') {
           return NextResponse.redirect(new URL('/pending-assignment', request.url));
         }
-        // Otherwise send to onboarding
         return NextResponse.redirect(new URL('/sub-vendor/onboarding', request.url));
       }
 
-      if (payload.role === 'employee') return NextResponse.redirect(new URL(payload.status === 'active' ? '/employee/dashboard' : '/pending-approval', request.url));
+      if (payload.role === 'employee') {
+        if (payload.dashboardAccess && payload.assignmentStatus === 'completed') {
+          return NextResponse.redirect(new URL('/employee/dashboard', request.url));
+        }
+        if (payload.documentsVerified && payload.assignmentStatus !== 'completed') {
+          return NextResponse.redirect(new URL('/pending-assignment', request.url));
+        }
+        return NextResponse.redirect(new URL('/employee/onboarding', request.url));
+      }
       if (payload.role === 'member') return NextResponse.redirect(new URL(payload.status === 'active' ? '/member/dashboard' : '/pending-assignment', request.url));
     } catch (e) {
       return NextResponse.next();
@@ -68,7 +73,7 @@ export async function proxy(request: NextRequest) {
 
     try {
       const { payload }: any = await jwtVerify(token, JWT_SECRET);
-      
+
       // VENDOR STRICT ACCESS CONTROL
       if (payload.role === 'vendor') {
         // API Protection
@@ -107,17 +112,17 @@ export async function proxy(request: NextRequest) {
           }
 
           // Rule 2: Onboarding/Dashboard Toggle
-          if (!payload.dashboardAccess && pathname !== '/sub-vendor/onboarding') {
+          if (!payload.documentsVerified && pathname !== '/sub-vendor/onboarding') {
             return NextResponse.redirect(new URL('/sub-vendor/onboarding', request.url));
           }
-          if (payload.dashboardAccess && pathname === '/sub-vendor/onboarding') {
-            // If they have dashboardAccess, check assignment before letting them into dashboard
+          if (payload.documentsVerified && pathname === '/sub-vendor/onboarding') {
+            // If they have documentsVerified, check assignment before letting them into dashboard
             if (payload.assignmentStatus !== 'completed') {
               return NextResponse.redirect(new URL('/pending-assignment', request.url));
             }
             return NextResponse.redirect(new URL('/sub-vendor/dashboard', request.url));
           }
-          
+
           // Rule 3: Final Dashboard Gate
           if (pathname.startsWith('/sub-vendor/dashboard') && payload.assignmentStatus !== 'completed') {
             return NextResponse.redirect(new URL('/pending-assignment', request.url));
@@ -125,8 +130,36 @@ export async function proxy(request: NextRequest) {
         }
       }
 
-      // EMPLOYEE / MEMBER PROTECTION
-      if (payload.role !== 'super_admin' && payload.role !== 'vendor' && payload.role !== 'sub_vendor' && !['active', 'approved'].includes(payload.status)) {
+      // EMPLOYEE STRICT ACCESS CONTROL
+      if (payload.role === 'employee') {
+        if (isEmployeePage) {
+          // Rule 1: Assignment Check (Higher Priority)
+          if (payload.assignmentStatus !== 'completed' && pathname !== '/employee/onboarding' && pathname !== '/pending-assignment') {
+            if (payload.dashboardAccess || pathname.startsWith('/employee/dashboard')) {
+              return NextResponse.redirect(new URL('/pending-assignment', request.url));
+            }
+          }
+
+          // Rule 2: Onboarding/Dashboard Toggle
+          if (!payload.documentsVerified && pathname !== '/employee/onboarding') {
+            return NextResponse.redirect(new URL('/employee/onboarding', request.url));
+          }
+          if (payload.documentsVerified && pathname === '/employee/onboarding') {
+            if (payload.assignmentStatus !== 'completed') {
+              return NextResponse.redirect(new URL('/pending-assignment', request.url));
+            }
+            return NextResponse.redirect(new URL('/employee/dashboard', request.url));
+          }
+
+          // Rule 3: Final Dashboard Gate
+          if (pathname.startsWith('/employee/dashboard') && payload.assignmentStatus !== 'completed') {
+            return NextResponse.redirect(new URL('/pending-assignment', request.url));
+          }
+        }
+      }
+
+      // MEMBER PROTECTION
+      if (payload.role === 'member' && !['active', 'approved'].includes(payload.status)) {
         if (pathname !== '/pending-approval' && pathname !== '/pending-assignment') {
           return NextResponse.redirect(new URL('/pending-approval', request.url));
         }
@@ -157,37 +190,39 @@ export async function proxy(request: NextRequest) {
     if (!token) return NextResponse.redirect(new URL('/login', request.url));
     try {
       const { payload }: any = await jwtVerify(token, JWT_SECRET);
-      
+
       // If user is now active and assigned, redirect them out of the waiting room
       if (payload.status === 'active' || payload.status === 'approved') {
-         if (payload.role === 'vendor' && !payload.dashboardAccess) {
-            return NextResponse.redirect(new URL('/vendor/onboarding', request.url));
-         }
-         if (payload.role === 'sub_vendor') {
-            if (!payload.dashboardAccess) return NextResponse.redirect(new URL('/sub-vendor/onboarding', request.url));
-            if (payload.assignmentStatus !== 'completed') return NextResponse.redirect(new URL('/pending-assignment', request.url));
-         }
-         
-         // Special case for sub-vendor in pending-assignment: if assignment completed, let them into dashboard
-         if (payload.role === 'sub_vendor' && payload.assignmentStatus === 'completed' && payload.dashboardAccess) {
-            return NextResponse.redirect(new URL('/sub-vendor/dashboard', request.url));
-         }
+        if (payload.role === 'vendor' && !payload.dashboardAccess) {
+          return NextResponse.redirect(new URL('/vendor/onboarding', request.url));
+        }
+        if (['sub_vendor', 'employee'].includes(payload.role)) {
+          const rolePath = payload.role === 'sub_vendor' ? 'sub-vendor' : 'employee';
+          if (!payload.documentsVerified) return NextResponse.redirect(new URL(`/${rolePath}/onboarding`, request.url));
+          if (payload.assignmentStatus !== 'completed') return NextResponse.redirect(new URL('/pending-assignment', request.url));
+        }
 
-         // Redirect to their respective dashboards
-         const dashMap: any = {
-           super_admin: '/admin/dashboard',
-           vendor: '/vendor/dashboard',
-           sub_vendor: '/sub-vendor/dashboard',
-           employee: '/employee/dashboard',
-           member: '/member/dashboard'
-         };
-         
-         // Don't redirect out of pending-assignment if assignment is still pending (for non-vendors)
-         if (pathname === '/pending-assignment' && payload.assignmentStatus !== 'completed' && payload.role !== 'super_admin' && payload.role !== 'vendor') {
-            return NextResponse.next();
-         }
+        // Special case for sub-vendor/employee in pending-assignment: if assignment completed, let them into dashboard
+        if (['sub_vendor', 'employee'].includes(payload.role) && payload.assignmentStatus === 'completed' && payload.dashboardAccess) {
+          const rolePath = payload.role === 'sub_vendor' ? 'sub-vendor' : 'employee';
+          return NextResponse.redirect(new URL(`/${rolePath}/dashboard`, request.url));
+        }
 
-         return NextResponse.redirect(new URL(dashMap[payload.role] || '/', request.url));
+        // Redirect to their respective dashboards
+        const dashMap: any = {
+          super_admin: '/admin/dashboard',
+          vendor: '/vendor/dashboard',
+          sub_vendor: '/sub-vendor/dashboard',
+          employee: '/employee/dashboard',
+          member: '/member/dashboard'
+        };
+
+        // Don't redirect out of pending-assignment if assignment is still pending (for non-vendors)
+        if (pathname === '/pending-assignment' && payload.assignmentStatus !== 'completed' && payload.role !== 'super_admin' && payload.role !== 'vendor') {
+          return NextResponse.next();
+        }
+
+        return NextResponse.redirect(new URL(dashMap[payload.role] || '/', request.url));
       }
     } catch (e) {
       return NextResponse.redirect(new URL('/login', request.url));
@@ -203,6 +238,7 @@ export const config = {
     '/vendor/:path*',
     '/vendor/onboarding',
     '/sub-vendor/onboarding',
+    '/employee/onboarding',
     '/api/vendor/:path*',
     '/sub-vendor/:path*',
     '/employee/:path*',

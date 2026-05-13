@@ -8,7 +8,8 @@ import {
  */
 export const REQUIRED_DOCS_BY_ROLE: Record<string, string[]> = {
   vendor: ['ngoCertificate', 'panCard', 'aadhaarCard', 'bankPassbook'],
-  sub_vendor: ['panCard', 'aadhaarCard', 'bankPassbook']
+  sub_vendor: ['panCard', 'aadhaarCard', 'bankPassbook'],
+  employee: ['panCard', 'aadhaarCard', 'bankPassbook']
 };
 
 /**
