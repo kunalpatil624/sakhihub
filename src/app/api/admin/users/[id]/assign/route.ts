@@ -20,8 +20,14 @@ export async function PATCH(
     
     await dbConnect();
 
+    const userToUpdate = await User.findById(id);
+    if (!userToUpdate) {
+      return errorResponse('User not found', 404);
+    }
+
     const updateData: any = {
-      assignmentStatus: 'completed'
+      assignmentStatus: 'completed',
+      updatedAt: new Date()
     };
 
     if (parentVendorId) updateData.parentVendorId = parentVendorId;
@@ -29,15 +35,18 @@ export async function PATCH(
     if (vendorCode) updateData.vendorCode = vendorCode;
     if (subVendorCode) updateData.subVendorCode = subVendorCode;
 
+    // AUTO-UNLOCK RULE: 
+    // If the user is a sub-vendor and has already been "activated" by admin (status is 'active' or 'approved'),
+    // completing the hierarchy assignment should now automatically unlock dashboard access.
+    if (userToUpdate.role === 'sub_vendor' && ['active', 'approved'].includes(userToUpdate.status)) {
+       updateData.dashboardAccess = true;
+    }
+
     const user = await User.findByIdAndUpdate(
       id, 
       { $set: updateData }, 
       { new: true, runValidators: true }
     );
-
-    if (!user) {
-      return errorResponse('User not found', 404);
-    }
 
     return successResponse(user, 'User hierarchy assignment completed successfully');
   } catch (error: any) {

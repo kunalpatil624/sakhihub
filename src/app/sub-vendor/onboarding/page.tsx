@@ -138,7 +138,7 @@ export default function SubVendorOnboarding() {
                  </div>
 
                  <div className="flex items-center gap-4">
-                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${['documents_uploaded', 'under_review'].includes(profile?.status) ? 'bg-amber-500 animate-pulse' : profile?.status === 'reupload_required' ? 'bg-red-500' : profile?.status === 'approved' ? 'bg-green-500' : 'bg-white/10'}`}>
+                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${['documents_uploaded', 'under_review'].includes(profile?.status) ? 'bg-amber-500 animate-pulse' : profile?.status === 'reupload_required' ? 'bg-red-500' : profile?.status === 'approved' ? 'bg-green-500' : profile?.status === 'active' ? 'bg-green-500' : 'bg-white/10'}`}>
                       <Clock size={24} />
                     </div>
                     <div>
@@ -148,28 +148,30 @@ export default function SubVendorOnboarding() {
                          profile?.status === 'under_review' ? 'In Progress' :
                          profile?.status === 'reupload_required' ? 'Re-upload Req' :
                          profile?.status === 'approved' ? 'Compliance Approved' :
-                         profile?.status === 'active' ? 'Account Active' :
+                         profile?.status === 'active' ? 'Compliance Verified' :
                          'Waiting'}
                       </p>
                     </div>
                  </div>
 
                  <div className="flex items-center gap-4">
-                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${['active', 'approved'].includes(profile?.status) ? 'bg-green-500' : 'bg-white/10'}`}>
+                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${['active', 'approved'].includes(profile?.status) && profile?.dashboardAccess ? 'bg-green-500' : 'bg-white/10'}`}>
                       <ShieldCheck size={24} />
                     </div>
                     <div>
                       <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Final Approval</p>
-                      <p className="font-bold text-sm">{['active', 'approved'].includes(profile?.status) ? 'Access Granted' : 'Pending Approval'}</p>
+                      <p className="font-bold text-sm">{['active', 'approved'].includes(profile?.status) && profile?.dashboardAccess ? 'Access Granted' : 'Pending Approval'}</p>
                     </div>
                  </div>
                </div>
 
                <div className="mt-12 pt-8 border-t border-white/10 relative z-10 text-center">
                  <p className="text-white/60 text-[10px] font-bold uppercase tracking-widest leading-relaxed">
-                   {profile?.status === 'approved' ? 
-                     'Compliance verified! Please wait for final manual activation by our administrator to access your dashboard.' :
-                     'Once all documents are uploaded, our compliance team will verify your organization within 24-48 business hours.'}
+                    {profile?.status === 'active' && !profile?.dashboardAccess ? 
+                      'Compliance verified! Waiting for final hierarchy assignment and parent vendor mapping to unlock your dashboard.' :
+                     profile?.status === 'approved' ? 
+                      'Compliance verified! Please wait for final manual activation and hierarchy mapping by our administrator.' :
+                      'Once all documents are uploaded, our compliance team will verify your organization within 24-48 business hours.'}
                  </p>
                </div>
             </div>

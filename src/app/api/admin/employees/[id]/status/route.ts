@@ -26,6 +26,9 @@ export async function PATCH(
 
     // 1. Handle overall status update (active/rejected/suspended)
     if (['active', 'rejected', 'suspended'].includes(status)) {
+      const userToUpdate = await User.findById(id);
+      if (!userToUpdate) return errorResponse('User not found', 404);
+
       const updateData: any = { 
         status, 
         updatedAt: new Date() 
@@ -33,22 +36,33 @@ export async function PATCH(
 
       // Set dashboard access and verification based on status
       if (status === 'active') {
-        updateData.dashboardAccess = true;
         updateData.isVerified = true;
+        
+        // STRICT SUB-VENDOR RULE: Dashboard access requires BOTH document approval AND hierarchy assignment
+        if (userToUpdate.role === 'sub_vendor') {
+           if (userToUpdate.assignmentStatus === 'completed' && userToUpdate.parentVendorId) {
+             updateData.dashboardAccess = true;
+           } else {
+             // Mark as active but keep dashboard blocked until assigned
+             updateData.dashboardAccess = false;
+           }
+        } else {
+           // Vendors and other roles get immediate access on activation
+           updateData.dashboardAccess = true;
+        }
       } else {
         updateData.dashboardAccess = false;
       }
 
       if (remarks) updateData.remarks = remarks;
 
-      const user = await User.findByIdAndUpdate(
+      const updatedUser = await User.findByIdAndUpdate(
         id,
         updateData,
         { new: true }
       ).select('-password');
       
-      if (!user) return errorResponse('User not found', 404);
-      return successResponse(user, `User status updated to ${status}`);
+      return successResponse(updatedUser, `User status updated to ${status}`);
     }
 
     // 2. Handle specific document status update (doc:{type}:{status})
