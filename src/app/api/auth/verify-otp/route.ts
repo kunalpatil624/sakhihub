@@ -45,11 +45,14 @@ export async function POST(req: NextRequest) {
     user.otpExpires = undefined;
     user.otpAttempts = 0;
     
-    // Activate account based on role
-    // For employees, we might still want admin approval, but prompt says "activate account"
-    // I'll set status to active for all if purpose was registration
+    // Activate account based on role if registration purpose
     if (purpose === 'Registration') {
-      user.status = 'active';
+      // VENDORS, SUB-VENDORS and EMPLOYEES must stay PENDING until admin verification
+      if (['vendor', 'sub_vendor', 'employee'].includes(user.role)) {
+        user.status = 'pending';
+      } else {
+        user.status = 'active';
+      }
     }
     
     await user.save();

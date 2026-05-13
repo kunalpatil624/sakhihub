@@ -33,7 +33,16 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
       try {
         const res = await axios.get('/api/auth/me');
         if (res.data.success) {
-          setUser(res.data.data);
+          const userData = res.data.data;
+          setUser(userData);
+
+          // Second layer of security check
+          if (userData.role === 'vendor' && !['active', 'approved'].includes(userData.status)) {
+             router.replace('/vendor/onboarding');
+          } else if (userData.role !== 'super_admin' && userData.status === 'pending' && pathname !== '/pending-approval') {
+             // For sub-vendors/employees
+             // router.replace('/pending-approval'); 
+          }
         }
       } catch (error) {
         console.error("Failed to fetch user session", error);
@@ -42,7 +51,7 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
       }
     };
     fetchUser();
-  }, []);
+  }, [router, pathname]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -81,6 +90,19 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
       <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 gap-4">
         <div className="w-10 h-10 border-4 border-gray-200 border-t-primary rounded-full animate-spin"></div>
         <p className="text-gray-500 font-semibold animate-pulse">Loading Session...</p>
+      </div>
+    );
+  }
+
+  // Final Guard: If vendor is not approved, block entire layout rendering
+  if (user?.role === 'vendor' && !user?.dashboardAccess) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-white p-8 text-center">
+        <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center text-primary mb-6 animate-bounce">
+          <ShieldCheck size={32} />
+        </div>
+        <h2 className="text-2xl font-black text-secondary">Verification Required</h2>
+        <p className="text-gray-400 font-bold mt-2">Redirecting to onboarding portal...</p>
       </div>
     );
   }

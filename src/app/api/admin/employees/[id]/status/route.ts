@@ -21,6 +21,58 @@ export async function PATCH(
     const { status, employeeId, designation, block, area } = await req.json();
     await dbConnect();
 
+    // Handle individual document verification
+    if (status.startsWith('doc:')) {
+      const [_, docType, docStatus, ...remarksArr] = status.split(':');
+      const remarks = remarksArr.join(':');
+      
+      const validDocStatuses = ['approved', 'rejected', 'reupload_required', 'under_review'];
+      if (!validDocStatuses.includes(docStatus)) {
+        return errorResponse(`Invalid document status: ${docStatus}`, 400);
+      }
+
+      const user = await User.findById(id);
+      if (!user) return errorResponse('User not found', 404);
+
+      if (!user.documents) user.documents = {};
+      const doc = (user.documents as any)[docType];
+      
+      if (!doc || !doc.url) return errorResponse('Document not uploaded yet — cannot review', 404);
+
+      doc.status = docStatus;
+      doc.reviewedAt = new Date();
+      if (remarks) doc.remarks = remarks;
+      if (docStatus === 'approved') doc.remarks = ''; // Clear remarks on approval
+
+      // Auto-update user status based on all doc statuses
+      const requiredDocs = ['ngoCertificate', 'panCard', 'aadhaarCard', 'bankPassbook'];
+      const allDocStatuses = requiredDocs.map(t => (user.documents as any)?.[t]?.status);
+      
+      const hasRejected = allDocStatuses.includes('rejected');
+      const hasReupload = allDocStatuses.includes('reupload_required');
+      const allApproved = requiredDocs.every(t => (user.documents as any)?.[t]?.status === 'approved');
+
+      if (hasRejected || hasReupload) {
+        user.status = 'reupload_required';
+      } else if (allApproved) {
+        // All docs approved — mark as under_review for final vendor approval
+        user.status = 'under_review';
+        user.documentsVerified = true;
+      } else {
+        // Some docs reviewed, none rejected — keep under_review
+        if (['pending', 'documents_uploaded', 'reupload_required'].includes(user.status)) {
+          user.status = 'under_review';
+        }
+      }
+
+      user.markModified('documents');
+      await user.save({ validateModifiedOnly: true });
+      
+      // Return fresh user data
+      const updatedUser = await User.findById(id).select('-password');
+      return successResponse(updatedUser, `Document ${docType} updated to ${docStatus}`);
+    }
+
     const userToUpdate = await User.findById(id);
     if (!userToUpdate) {
       return errorResponse('User not found', 404);
@@ -32,6 +84,17 @@ export async function PATCH(
     }
 
     const updateData: any = { status };
+    if (['active', 'approved'].includes(status)) {
+      updateData.isVerified = true;
+      updateData.dashboardAccess = true;
+      if (userToUpdate.role === 'vendor') {
+        updateData.onboardingCompleted = true;
+        updateData.documentsVerified = true;
+      }
+    } else if (status === 'rejected') {
+      updateData.status = 'reupload_required';
+    }
+
     if (employeeId) updateData.employeeId = employeeId;
     if (designation) updateData.designation = designation;
     if (block) updateData.block = block;

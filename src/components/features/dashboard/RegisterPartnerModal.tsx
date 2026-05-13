@@ -224,28 +224,31 @@ export default function RegisterPartnerModal({
               </div>
             </div>
 
-            <div className="space-y-2">
-              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Aadhaar Number</label>
-              <div className="relative group">
-                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-primary transition-colors">
-                  <ShieldCheck size={18} />
+            {/* Hide Aadhaar for Vendors/Sub-Vendors in initial registration, as it's part of verification onboarding */}
+            {role !== 'vendor' && role !== 'sub_vendor' && (
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Aadhaar Number</label>
+                <div className="relative group">
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-primary transition-colors">
+                    <ShieldCheck size={18} />
+                  </div>
+                  <input 
+                    type="text" 
+                    maxLength={12}
+                    value={formData.aadhaarNumber}
+                    onChange={(e) => setFormData({...formData, aadhaarNumber: e.target.value})}
+                    placeholder="12 digit Aadhaar"
+                    className="w-full pl-12 pr-5 py-4 bg-gray-50 border border-gray-100 rounded-2xl font-bold focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all"
+                  />
                 </div>
-                <input 
-                  type="text" 
-                  maxLength={12}
-                  value={formData.aadhaarNumber}
-                  onChange={(e) => setFormData({...formData, aadhaarNumber: e.target.value})}
-                  placeholder="12 digit Aadhaar"
-                  className="w-full pl-12 pr-5 py-4 bg-gray-50 border border-gray-100 rounded-2xl font-bold focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all"
-                />
               </div>
-            </div>
+            )}
 
             {/* Role Specific: Vendor Business Details */}
-            {role === 'vendor' && (
+            {(role === 'vendor' || role === 'sub_vendor') && (
               <>
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Business Name</label>
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Organization / NGO Name</label>
                   <div className="relative">
                     <Briefcase className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                     <input 
@@ -255,21 +258,6 @@ export default function RegisterPartnerModal({
                       onChange={(e) => setFormData({...formData, businessName: e.target.value})}
                       placeholder="Organization Name"
                       className="w-full pl-12 pr-5 py-4 bg-gray-50 border border-gray-100 rounded-2xl font-bold focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all"
-                    />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">PAN Number</label>
-                  <div className="relative">
-                    <ShieldCheck className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                    <input 
-                      required
-                      type="text" 
-                      maxLength={10}
-                      value={formData.panNumber}
-                      onChange={(e) => setFormData({...formData, panNumber: e.target.value.toUpperCase()})}
-                      placeholder="ABCDE1234F"
-                      className="w-full pl-12 pr-5 py-4 bg-gray-50 border border-gray-100 rounded-2xl font-bold focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all uppercase"
                     />
                   </div>
                 </div>
