@@ -57,11 +57,6 @@ export async function POST(req: NextRequest) {
       return errorResponse('Missing file or document type', 400);
     }
 
-    const allowedTypes = ['ngoCertificate', 'panCard', 'aadhaarCard', 'bankPassbook'];
-    if (!allowedTypes.includes(type)) {
-      return errorResponse('Invalid document type', 400);
-    }
-
     const UserModel = await getUserModel();
     const query: any[] = [{ _id: (session as any).id }];
 
@@ -75,16 +70,35 @@ export async function POST(req: NextRequest) {
     });
     if (!user) return errorResponse('User not found', 404);
 
+    const isVendor = user.role === 'vendor';
+    const isSubVendor = user.role === 'sub_vendor';
+
+    const allowedTypes = isVendor 
+      ? ['ngoCertificate', 'panCard', 'aadhaarCard', 'bankPassbook']
+      : ['panCard', 'aadhaarCard', 'bankPassbook'];
+
+    if (!allowedTypes.includes(type)) {
+      return errorResponse(`Invalid document type for ${user.role}: ${type}`, 400);
+    }
+
     // Strict PDF Validation (Backend)
     if (!file.startsWith('data:application/pdf;base64,')) {
       return errorResponse('Invalid file type. Only PDF documents are allowed.', 400);
     }
 
-    // Dynamic folder structure: sakhihub/vendors/{email}/{type}
-    const folder = `vendors/${(user.email || user._id.toString()).replace(/[@.]/g, '_')}`;
+    // Dynamic folder structure: sakhihub/{role}s/{email}/{type}
+    const roleFolder = isVendor ? 'vendors' : 'sub-vendors';
+    const folder = `${roleFolder}/${(user.email || user._id.toString()).replace(/[@.]/g, '_')}`;
     
     // Upload to Cloudinary with explicit PDF handling
     const uploadResult = await uploadToCloudinary(file, folder);
+
+    console.log('Cloudinary Upload Result:', {
+      public_id: uploadResult.public_id,
+      resource_type: uploadResult.resource_type,
+      format: uploadResult.format,
+      secure_url: uploadResult.secure_url
+    });
 
     if (!uploadResult || !uploadResult.secure_url) {
       throw new Error("Failed to get URL from Cloudinary");
@@ -100,7 +114,7 @@ export async function POST(req: NextRequest) {
       publicId: uploadResult.public_id,
       fileName: fileName || `${type}.pdf`,
       fileSize,
-      mimeType,
+      mimeType: mimeType || 'application/pdf',
       vendorId: user._id.toString(),
       vendorEmail: user.email || '',
       status: 'uploaded' as const,
@@ -109,6 +123,8 @@ export async function POST(req: NextRequest) {
       reviewedAt: undefined
     };
 
+    console.log(`Saving Document Entry for ${type}:`, JSON.stringify(docEntry, null, 2));
+
     // Use Mongoose's internal method to update the nested object reliably
     (user.documents as any)[type] = docEntry;
     
@@ -116,7 +132,10 @@ export async function POST(req: NextRequest) {
     user.markModified('documents');
 
     // Auto-update overall status if all required docs are now present
-    const requiredDocs = ['ngoCertificate', 'panCard', 'aadhaarCard', 'bankPassbook'];
+    const requiredDocs = isVendor 
+      ? ['ngoCertificate', 'panCard', 'aadhaarCard', 'bankPassbook']
+      : ['panCard', 'aadhaarCard', 'bankPassbook'];
+      
     const allUploaded = requiredDocs.every(t => (user.documents as any)?.[t]?.url);
     
     if (allUploaded && ['pending', 'reupload_required'].includes(user.status)) {

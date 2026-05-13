@@ -45,7 +45,11 @@ export async function PATCH(
       if (docStatus === 'approved') doc.remarks = ''; // Clear remarks on approval
 
       // Auto-update user status based on all doc statuses
-      const requiredDocs = ['ngoCertificate', 'panCard', 'aadhaarCard', 'bankPassbook'];
+      const isVendor = user.role === 'vendor';
+      const requiredDocs = isVendor 
+        ? ['ngoCertificate', 'panCard', 'aadhaarCard', 'bankPassbook']
+        : ['panCard', 'aadhaarCard', 'bankPassbook'];
+        
       const allDocStatuses = requiredDocs.map(t => (user.documents as any)?.[t]?.status);
       
       const hasRejected = allDocStatuses.includes('rejected');

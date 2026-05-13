@@ -10,6 +10,7 @@ import {
   FileCheck, Landmark, UserCheck, RefreshCw
 } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { getDocumentViewUrl, isDocumentUploaded } from '@/utils/documents';
 
 interface HierarchyDetailViewProps {
   data: {
@@ -358,16 +359,21 @@ export default function HierarchyDetailView({ data, onClose, onStatusUpdate }: H
                  </div>
 
                  <div className="grid grid-cols-1 gap-6">
-                    {[
+                    {(user.role === 'vendor' ? [
                       { id: 'ngoCertificate', label: 'NGO Registration Certificate', icon: FileCheck },
                       { id: 'panCard', label: 'PAN Card (Org/Proprietor)', icon: CreditCard },
                       { id: 'aadhaarCard', label: 'Aadhaar Card (Auth. Person)', icon: UserCheck },
                       { id: 'bankPassbook', label: 'Bank Passbook / Cheque', icon: Landmark }
-                    ].map((doc) => {
+                    ] : [
+                      { id: 'panCard', label: 'PAN Card', icon: CreditCard },
+                      { id: 'aadhaarCard', label: 'Aadhaar Card', icon: UserCheck },
+                      { id: 'bankPassbook', label: 'Bank Passbook / Cheque', icon: Landmark }
+                    ]).map((doc) => {
                       const docInfo = user.documents?.[doc.id];
                       const status = docInfo?.status || 'missing';
                       const isUploaded = !!docInfo?.url;
                       const statusMeta = getDocStatusMeta(status);
+                      const viewUrl = getDocumentViewUrl(docInfo?.url);
 
                       return (
                         <div key={doc.id} className={`p-6 md:p-8 rounded-[40px] border-2 transition-all flex flex-col gap-4 ${
@@ -417,7 +423,7 @@ export default function HierarchyDetailView({ data, onClose, onStatusUpdate }: H
                               {isUploaded ? (
                                 <>
                                   <a 
-                                    href={docInfo.url} 
+                                    href={viewUrl} 
                                     target="_blank" 
                                     rel="noopener noreferrer"
                                     className="px-6 py-3 bg-white text-secondary font-black text-[10px] uppercase tracking-widest rounded-2xl border border-gray-100 hover:bg-secondary hover:text-white transition-all flex items-center justify-center gap-2"
@@ -485,53 +491,62 @@ export default function HierarchyDetailView({ data, onClose, onStatusUpdate }: H
                  </div>
                </div>
 
-               {/* Verification Summary Sidebar */}
-               <div className="lg:w-80 space-y-8">
-                 <div className="bg-secondary-dark p-8 rounded-[40px] text-white shadow-2xl relative overflow-hidden">
-                    <div className="absolute top-[-20px] right-[-20px] w-32 h-32 bg-primary/20 rounded-full blur-3xl"></div>
-                    <h4 className="text-xl font-black mb-6 relative z-10">Compliance Summary</h4>
-                    
-                    <div className="space-y-6 relative z-10">
-                       {[
-                         { label: 'Total Required', value: 4, icon: FileText, color: 'bg-white/10' },
-                         { label: 'Uploaded', value: Object.keys(user.documents || {}).filter(k => ['ngoCertificate', 'panCard', 'aadhaarCard', 'bankPassbook'].includes(k) && user.documents[k]?.url).length, icon: CheckCircle2, color: 'bg-primary/40' },
-                         { label: 'Approved', value: Object.keys(user.documents || {}).filter(k => ['ngoCertificate', 'panCard', 'aadhaarCard', 'bankPassbook'].includes(k) && user.documents[k]?.status === 'approved').length, icon: ShieldCheck, color: 'bg-green-500' },
-                         { label: 'Rejected', value: Object.keys(user.documents || {}).filter(k => ['ngoCertificate', 'panCard', 'aadhaarCard', 'bankPassbook'].includes(k) && user.documents[k]?.status === 'rejected').length, icon: AlertCircle, color: 'bg-red-500' }
-                       ].map((stat, i) => (
-                         <div key={i} className="flex items-center gap-4">
-                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${stat.color}`}>
-                              <stat.icon size={20} />
-                            </div>
-                            <div>
-                               <p className="text-[9px] font-black uppercase tracking-widest opacity-60">{stat.label}</p>
-                               <p className="text-lg font-black">{stat.value}</p>
-                            </div>
-                         </div>
-                       ))}
-                    </div>
+                {/* Verification Summary Sidebar */}
+                <div className="lg:w-80 space-y-8">
+                  <div className="bg-secondary-dark p-8 rounded-[40px] text-white shadow-2xl relative overflow-hidden">
+                     <div className="absolute top-[-20px] right-[-20px] w-32 h-32 bg-primary/20 rounded-full blur-3xl"></div>
+                     <h4 className="text-xl font-black mb-6 relative z-10">Compliance Summary</h4>
+                     <div className="space-y-6 relative z-10">
+                        {(() => {
+                          const isVendor = user.role === 'vendor';
+                          const requiredDocs = isVendor 
+                            ? ['ngoCertificate', 'panCard', 'aadhaarCard', 'bankPassbook']
+                            : ['panCard', 'aadhaarCard', 'bankPassbook'];
+                          
+                          const approvedCount = Object.keys(user.documents || {}).filter(k => requiredDocs.includes(k) && user.documents[k]?.status === 'approved').length;
+                          const allApproved = approvedCount === requiredDocs.length;
 
-                    <div className="mt-8 pt-6 border-t border-white/10 relative z-10">
-                       <div className={`p-4 rounded-2xl text-[10px] font-black uppercase tracking-widest text-center ${
-                         Object.keys(user.documents || {}).filter(k => ['ngoCertificate', 'panCard', 'aadhaarCard', 'bankPassbook'].includes(k) && user.documents[k]?.status === 'approved').length === 4 
-                         ? 'bg-green-500 text-white' 
-                         : 'bg-white/10 text-white/60'
-                       }`}>
-                         {Object.keys(user.documents || {}).filter(k => ['ngoCertificate', 'panCard', 'aadhaarCard', 'bankPassbook'].includes(k) && user.documents[k]?.status === 'approved').length === 4 
-                          ? 'All Documents Verified' 
-                          : 'Verification Pending'}
-                       </div>
-                    </div>
-                 </div>
+                          return (
+                            <>
+                              {[
+                                { label: 'Total Required', value: requiredDocs.length, icon: FileText, color: 'bg-white/10' },
+                                { label: 'Uploaded', value: Object.keys(user.documents || {}).filter(k => requiredDocs.includes(k) && user.documents[k]?.url).length, icon: CheckCircle2, color: 'bg-primary/40' },
+                                { label: 'Approved', value: approvedCount, icon: ShieldCheck, color: 'bg-green-500' },
+                                { label: 'Rejected', value: Object.keys(user.documents || {}).filter(k => requiredDocs.includes(k) && user.documents[k]?.status === 'rejected').length, icon: AlertCircle, color: 'bg-red-500' }
+                              ].map((item, idx) => (
+                                <div key={idx} className="flex items-center gap-4">
+                                   <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${item.color}`}>
+                                     <item.icon size={20} />
+                                   </div>
+                                   <div>
+                                     <p className="text-[9px] font-black uppercase tracking-widest opacity-60">{item.label}</p>
+                                     <p className="text-lg font-black">{item.value}</p>
+                                   </div>
+                                </div>
+                              ))}
 
-                 <div className="bg-amber-50 p-6 rounded-[32px] border border-amber-100">
-                    <h5 className="text-[10px] font-black text-amber-700 uppercase tracking-widest mb-3 flex items-center gap-2">
-                       <Clock size={14} /> Review Policy
-                    </h5>
-                    <p className="text-[11px] text-amber-800 font-bold leading-relaxed">
-                       Final approval of the vendor should only be granted once all 4 mandatory documents are marked as "approved". Rejected documents will prompt the vendor to re-upload.
-                    </p>
-                 </div>
-               </div>
+                              <div className="mt-8 pt-6 border-t border-white/10">
+                                <div className={`p-4 rounded-2xl text-[10px] font-black uppercase tracking-widest text-center ${
+                                  allApproved ? 'bg-green-500 text-white' : 'bg-white/10 text-white/60'
+                                }`}>
+                                  {allApproved ? 'All Documents Verified' : 'Verification Pending'}
+                                </div>
+                              </div>
+                            </>
+                          );
+                        })()}
+                     </div>
+                  </div>
+
+                  <div className="bg-amber-50 p-6 rounded-[32px] border border-amber-100">
+                     <h5 className="text-[10px] font-black text-amber-700 uppercase tracking-widest mb-3 flex items-center gap-2">
+                        <Clock size={14} /> Review Policy
+                     </h5>
+                     <p className="text-[11px] text-amber-800 font-bold leading-relaxed">
+                        Final approval should only be granted once all mandatory documents are marked as "approved". Rejected documents will prompt the partner to re-upload.
+                     </p>
+                  </div>
+                </div>
              </div>
           </motion.div>
         )}

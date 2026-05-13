@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import axios from "axios";
 import { motion } from "framer-motion";
+import { getDocumentViewUrl, isDocumentUploaded } from '@/utils/documents';
 
 const docTypes = [
   { id: 'ngoCertificate', label: 'NGO Registration Certificate', icon: FileCheck, desc: 'Registration certificate issued by government' },
@@ -135,7 +136,8 @@ export default function VendorDocuments() {
           <div className="lg:col-span-2 space-y-6">
             {docTypes.map((doc) => {
               const docInfo = documents[doc.id];
-              const isUploaded = !!docInfo?.url;
+              const isUploaded = isDocumentUploaded(docInfo);
+              const viewUrl = getDocumentViewUrl(docInfo?.url);
               const status = docInfo?.status || 'pending';
               const statusMeta = getStatusMeta(status);
               const DocIcon = doc.icon;
@@ -191,7 +193,7 @@ export default function VendorDocuments() {
                           {/* Actions row */}
                           <div className="flex flex-wrap items-center gap-3 pt-2">
                             <a 
-                              href={docInfo.url} 
+                              href={viewUrl} 
                               target="_blank" 
                               rel="noopener noreferrer"
                               className="px-5 py-2.5 bg-gray-50 text-secondary font-black text-[10px] uppercase tracking-widest rounded-2xl border border-gray-100 hover:bg-secondary hover:text-white transition-all flex items-center gap-2"

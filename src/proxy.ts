@@ -77,15 +77,33 @@ export async function proxy(request: NextRequest) {
         }
       }
 
-      // SUB-VENDOR / EMPLOYEE / MEMBER PROTECTION
-      if (payload.role !== 'super_admin' && payload.role !== 'vendor' && !['active', 'approved'].includes(payload.status)) {
+      // SUB-VENDOR STRICT ACCESS CONTROL
+      if (payload.role === 'sub_vendor') {
+        // API Protection (can reuse vendor API for documents)
+        if (isVendorApi && !payload.dashboardAccess && pathname !== '/api/vendor/documents') {
+          return NextResponse.json({ success: false, message: 'Verification Required. Dashboard access blocked.' }, { status: 403 });
+        }
+
+        // Page Protection
+        if (isSubVendorPage) {
+          if (!payload.dashboardAccess && pathname !== '/sub-vendor/onboarding') {
+            return NextResponse.redirect(new URL('/sub-vendor/onboarding', request.url));
+          }
+          if (payload.dashboardAccess && pathname === '/sub-vendor/onboarding') {
+            return NextResponse.redirect(new URL('/sub-vendor/dashboard', request.url));
+          }
+        }
+      }
+
+      // EMPLOYEE / MEMBER PROTECTION
+      if (payload.role !== 'super_admin' && payload.role !== 'vendor' && payload.role !== 'sub_vendor' && !['active', 'approved'].includes(payload.status)) {
         if (pathname !== '/pending-approval' && pathname !== '/pending-assignment') {
           return NextResponse.redirect(new URL('/pending-approval', request.url));
         }
       }
 
       // Hierarchy check (Option C)
-      if (!['super_admin', 'vendor'].includes(payload.role) && payload.assignmentStatus === 'pending') {
+      if (!['super_admin', 'vendor', 'sub_vendor'].includes(payload.role) && payload.assignmentStatus === 'pending') {
         if (pathname !== '/pending-assignment' && pathname !== '/pending-approval') {
           return NextResponse.redirect(new URL('/pending-assignment', request.url));
         }
@@ -114,6 +132,9 @@ export async function proxy(request: NextRequest) {
          if (payload.role === 'vendor' && !payload.dashboardAccess) {
             return NextResponse.redirect(new URL('/vendor/onboarding', request.url));
          }
+         if (payload.role === 'sub_vendor' && !payload.dashboardAccess) {
+            return NextResponse.redirect(new URL('/sub-vendor/onboarding', request.url));
+         }
          // Redirect to their respective dashboards
          const dashMap: any = {
            super_admin: '/admin/dashboard',
@@ -137,6 +158,7 @@ export const config = {
     '/admin/:path*',
     '/vendor/:path*',
     '/vendor/onboarding',
+    '/sub-vendor/onboarding',
     '/api/vendor/:path*',
     '/sub-vendor/:path*',
     '/employee/:path*',

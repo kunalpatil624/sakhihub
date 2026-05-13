@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   ShieldCheck, FileText, Upload, CheckCircle2, 
   AlertCircle, Clock, ChevronRight, 
-  FileCheck, Landmark, CreditCard, UserCheck,
+  Landmark, CreditCard, UserCheck,
   LogOut
 } from 'lucide-react';
 import axios from 'axios';
@@ -19,13 +19,12 @@ const steps = [
 ];
 
 const docTypes = [
-  { id: 'ngoCertificate', name: 'NGO Registration', icon: FileCheck, desc: 'Registration certificate issued by government' },
   { id: 'panCard', name: 'PAN Card', icon: CreditCard, desc: 'Organizational or Proprietor PAN card' },
   { id: 'aadhaarCard', name: 'Aadhaar Card', icon: UserCheck, desc: 'Aadhaar card of the authorized person' },
   { id: 'bankPassbook', name: 'Bank Document', icon: Landmark, desc: 'Cancelled cheque or first page of passbook' },
 ];
 
-export default function VendorOnboarding() {
+export default function SubVendorOnboarding() {
   const router = useRouter();
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -65,8 +64,8 @@ export default function VendorOnboarding() {
       const res = await axios.get('/api/auth/me');
       if (res.data.success) {
         setProfile(res.data.data);
-        if (['active', 'approved'].includes(res.data.data.status)) {
-          router.push('/vendor/dashboard');
+        if (['active', 'approved'].includes(res.data.data.status) && res.data.data.dashboardAccess) {
+          router.push('/sub-vendor/dashboard');
         }
       }
     } catch (err) {
@@ -92,7 +91,7 @@ export default function VendorOnboarding() {
       return;
     }
 
-    if (file.size > 10 * 1024 * 1024) { // Increased to 10MB for high-quality PDFs
+    if (file.size > 10 * 1024 * 1024) {
       alert("File size should be less than 10MB");
       return;
     }
@@ -155,7 +154,6 @@ export default function VendorOnboarding() {
   );
 
   const allUploaded = docTypes.every(doc => profile?.documents?.[doc.id]?.url);
-  const allVerified = docTypes.every(doc => profile?.documents?.[doc.id]?.status === 'approved');
 
   return (
     <div className="min-h-screen bg-gray-50/50 pb-20">
@@ -165,7 +163,7 @@ export default function VendorOnboarding() {
           <div className="flex items-center gap-4">
             <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center text-white font-black text-xl shadow-lg shadow-primary/20">S</div>
             <div>
-              <h1 className="text-lg font-black text-secondary tracking-tight">SakhiHub Vendor</h1>
+              <h1 className="text-lg font-black text-secondary tracking-tight">SakhiHub Sub-Vendor</h1>
               <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Verification Portal</p>
             </div>
           </div>
@@ -185,12 +183,12 @@ export default function VendorOnboarding() {
           {steps.map((step, idx) => (
             <div key={step.id} className="relative z-10 flex flex-col items-center gap-3">
               <div className={`w-10 h-10 rounded-full flex items-center justify-center text-xs font-black transition-all duration-500 ${
-                profile?.status === 'active' ? 'bg-green-500 text-white' :
+                profile?.status === 'active' || profile?.status === 'approved' ? 'bg-green-500 text-white' :
                 step.id === 1 ? 'bg-green-500 text-white' :
                 step.id === 2 ? 'bg-primary text-white ring-8 ring-primary/10' :
                 'bg-white text-gray-300 border-2 border-gray-100'
               }`}>
-                {step.id < 2 || profile?.status === 'active' ? <CheckCircle2 size={18} /> : step.id}
+                {step.id < 2 || profile?.status === 'active' || profile?.status === 'approved' ? <CheckCircle2 size={18} /> : step.id}
               </div>
               <span className={`text-[10px] font-black uppercase tracking-widest ${step.id === 2 ? 'text-primary' : 'text-gray-400'}`}>
                 {step.name}
@@ -203,8 +201,8 @@ export default function VendorOnboarding() {
           {/* Content Area */}
           <div className="lg:col-span-2 space-y-8">
             <section>
-              <h2 className="text-3xl font-black text-secondary mb-2">Complete Verification</h2>
-              <p className="text-gray-400 font-bold uppercase tracking-widest text-[10px]">Please upload high-quality PDF or Image scans of the following documents</p>
+              <h2 className="text-3xl font-black text-secondary mb-2">Compliance Verification</h2>
+              <p className="text-gray-400 font-bold uppercase tracking-widest text-[10px]">Please upload PDF scans of the following mandatory documents</p>
             </section>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -256,42 +254,18 @@ export default function VendorOnboarding() {
                               </div>
                               <p className="text-sm font-black text-secondary truncate">{docInfo.fileName || doc.name}</p>
                               <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1">{formatFileSize(docInfo.fileSize)}</p>
-                              {docInfo.uploadedAt && (
-                                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1">
-                                  Uploaded {new Date(docInfo.uploadedAt).toLocaleString()}
-                                </p>
-                              )}
                             </div>
                             <a
                               href={viewUrl}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="p-3 bg-white rounded-2xl text-primary border border-gray-100 shadow-sm hover:bg-primary hover:text-white transition-all shrink-0"
-                              title="Open uploaded document"
                             >
                               <ChevronRight size={16} />
                             </a>
                           </div>
-                          <div className="flex items-center justify-between gap-3 pt-2 border-t border-gray-100">
-                            <a href={viewUrl} target="_blank" rel="noopener noreferrer" className="text-[10px] font-black text-primary uppercase tracking-widest hover:underline flex items-center gap-2">
-                              Preview / Open <ChevronRight size={14} />
-                            </a>
-                            {docInfo.publicId && (
-                              <span className="text-[9px] font-black uppercase tracking-widest text-gray-400 truncate max-w-[180px]">
-                                Cloudinary: {docInfo.publicId}
-                              </span>
-                            )}
-                          </div>
                         </div>
                       ) : null}
-
-                      {/* Selected File Preview */}
-                      {fileStates[doc.id] && !isUploaded && (
-                        <div className="p-3 bg-white/80 rounded-2xl border border-primary/10 flex flex-col gap-1">
-                          <p className="text-[10px] font-black text-secondary truncate">{fileStates[doc.id].name}</p>
-                          <p className="text-[9px] text-gray-400 font-bold uppercase">{fileStates[doc.id].size}</p>
-                        </div>
-                      )}
 
                       <label className={`w-full py-4 rounded-2xl flex items-center justify-center gap-3 font-black text-xs uppercase tracking-widest cursor-pointer transition-all ${
                         uploading === doc.id ? 'bg-gray-100 text-gray-400 cursor-wait' :
@@ -316,7 +290,6 @@ export default function VendorOnboarding() {
                       </label>
                     </div>
 
-                    {/* Review Metadata Section (Bottom stacked) */}
                     {(docInfo?.reviewedAt || (docInfo?.remarks && ['rejected', 'reupload_required'].includes(status))) && (
                       <div className="flex flex-col gap-3 pt-4 border-t border-black/5 mt-4 w-full">
                         {docInfo?.reviewedAt && (
@@ -329,9 +302,7 @@ export default function VendorOnboarding() {
                           <div className="w-full p-4 bg-white/50 rounded-2xl border border-red-100 flex items-start gap-3">
                             <AlertCircle size={16} className="text-red-500 shrink-0 mt-0.5" />
                             <div>
-                              <p className="text-[10px] text-red-500 font-black uppercase tracking-widest mb-1">
-                                {status === 'reupload_required' ? 'Re-upload Instructions' : 'Reason for Rejection'}
-                              </p>
+                              <p className="text-[10px] text-red-500 font-black uppercase tracking-widest mb-1">Admin Remarks</p>
                               <p className="text-[10px] text-red-500 font-bold leading-relaxed">{docInfo.remarks}</p>
                             </div>
                           </div>
@@ -344,16 +315,15 @@ export default function VendorOnboarding() {
             </div>
           </div>
 
-          {/* Sidebar / Status Area */}
           <div className="space-y-8">
             <div className="bg-secondary-dark p-10 rounded-[40px] text-white shadow-2xl relative overflow-hidden">
                <div className="absolute top-[-50px] right-[-50px] w-40 h-40 bg-primary/20 rounded-full blur-3xl"></div>
-               <h4 className="text-2xl font-black mb-6 relative z-10">Verification Status</h4>
+               <h4 className="text-2xl font-black mb-6 relative z-10">Status</h4>
                
                <div className="space-y-6 relative z-10">
                  <div className="flex items-center gap-4">
                     <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${allUploaded ? 'bg-green-500' : 'bg-white/10'}`}>
-                      <FileCheck size={24} />
+                      <CheckCircle2 size={24} />
                     </div>
                     <div>
                       <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Documents</p>
@@ -366,12 +336,12 @@ export default function VendorOnboarding() {
                       <Clock size={24} />
                     </div>
                     <div>
-                      <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Review Process</p>
+                      <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Admin Review</p>
                       <p className="font-bold text-sm">
-                        {profile?.status === 'documents_uploaded' ? 'Documents Submitted' :
+                        {profile?.status === 'documents_uploaded' ? 'Submitted' :
                          profile?.status === 'under_review' ? 'In Progress' :
-                         profile?.status === 'reupload_required' ? 'Re-upload Required' :
-                         'Waiting for Upload'}
+                         profile?.status === 'reupload_required' ? 'Re-upload Req' :
+                         'Waiting'}
                       </p>
                     </div>
                  </div>
@@ -381,26 +351,11 @@ export default function VendorOnboarding() {
                       <ShieldCheck size={24} />
                     </div>
                     <div>
-                      <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Final Approval</p>
-                      <p className="font-bold text-sm">{['active', 'approved'].includes(profile?.status) ? 'Access Granted' : 'Pending Approval'}</p>
+                      <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Dashboard</p>
+                      <p className="font-bold text-sm">{['active', 'approved'].includes(profile?.status) ? 'Unlocked' : 'Locked'}</p>
                     </div>
                  </div>
                </div>
-
-               <div className="mt-12 pt-8 border-t border-white/10 relative z-10 text-center">
-                 <p className="text-white/60 text-[10px] font-bold uppercase tracking-widest leading-relaxed">
-                   Once all documents are uploaded, our compliance team will verify your organization within 24-48 business hours.
-                 </p>
-               </div>
-            </div>
-
-            <div className="bg-white p-8 rounded-[40px] border border-gray-100">
-              <h5 className="text-sm font-black text-secondary uppercase tracking-widest mb-4 flex items-center gap-2">
-                <AlertCircle size={16} className="text-primary" /> Security Note
-              </h5>
-              <p className="text-xs text-gray-400 font-bold leading-relaxed">
-                Your data is stored securely using enterprise-grade encryption. We only use these documents for government compliance and NGO verification purposes.
-              </p>
             </div>
           </div>
         </div>
