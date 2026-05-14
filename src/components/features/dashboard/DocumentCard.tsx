@@ -59,7 +59,7 @@ export default function DocumentCard({
 
       <h3 className="text-xl font-black text-secondary mb-2">{config.label}</h3>
       <p className="text-[10px] text-primary font-black uppercase tracking-widest mb-2 flex items-center gap-1.5">
-        <FileText size={12} /> PDF ONLY
+        <FileText size={12} /> PDF, JPG, PNG, WEBP
       </p>
       <p className="text-xs text-gray-400 font-bold leading-relaxed mb-6">{config.desc}</p>
 
@@ -119,12 +119,12 @@ export default function DocumentCard({
                 <span>Uploading...</span>
               </div>
             ) : (
-              <><Upload size={16} /> {isUploaded ? 'Re-upload' : 'Choose PDF'}</>
+              <><Upload size={16} /> {isUploaded ? 'Re-upload' : 'Choose File'}</>
             )}
             <input 
               type="file" 
               className="hidden" 
-              accept=".pdf" 
+              accept=".pdf,.jpg,.jpeg,.png,.webp" 
               disabled={uploading || status === 'approved'}
               onChange={(e) => {
                 const file = e.target.files?.[0];

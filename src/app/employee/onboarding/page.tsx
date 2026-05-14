@@ -130,7 +130,7 @@ export default function EmployeeOnboarding() {
           <div className="lg:col-span-2 space-y-8">
             <section>
               <h2 className="text-3xl font-black text-secondary mb-2">Step 1: Compliance Verification</h2>
-              <p className="text-gray-400 font-bold uppercase tracking-widest text-[10px]">Please upload PDF scans of the following mandatory documents</p>
+              <p className="text-gray-400 font-bold uppercase tracking-widest text-[10px]">Please upload scans (PDF, JPG, PNG, WEBP) of the following mandatory documents</p>
             </section>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

@@ -105,7 +105,7 @@ export default function VendorOnboarding() {
           <div className="lg:col-span-2 space-y-8">
             <section>
               <h2 className="text-3xl font-black text-secondary mb-2">Complete Verification</h2>
-              <p className="text-gray-400 font-bold uppercase tracking-widest text-[10px]">Please upload high-quality PDF scans of the following documents</p>
+              <p className="text-gray-400 font-bold uppercase tracking-widest text-[10px]">Please upload high-quality scans (PDF, JPG, PNG, WEBP) of the following documents</p>
             </section>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

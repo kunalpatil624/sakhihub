@@ -8,19 +8,18 @@ import { successResponse, errorResponse } from '@/utils/response';
 export async function GET(req: NextRequest) {
   try {
     const session = await getAuthSession();
-    if (!session || (session as any).role !== 'sub_vendor') {
+    if (!session || (session as any).role !== 'member') {
       return errorResponse('Unauthorized', 403);
     }
 
     await dbConnect();
 
-    const subVendorId = (session as any).id;
-    const subVendor = await User.findById(subVendorId);
-    if (!subVendor?.parentUser) return errorResponse('No parent vendor assigned', 400);
+    const memberId = (session as any).id;
+    const member = await User.findById(memberId);
+    if (!member?.parentUser) return errorResponse('No parent employee assigned', 400);
 
-    const parentId = subVendor.parentUser.toString();
+    const parentId = member.parentUser.toString();
 
-    // Active campaigns available for recruitment
     const allCampaigns = await Campaign.find({ status: 'active' });
 
     const assigned: any[] = [];
@@ -28,25 +27,24 @@ export async function GET(req: NextRequest) {
     const available: any[] = [];
 
     allCampaigns.forEach((c) => {
-      // Check if parent vendor has access
+      // Check if parent (Employee) has access
       const parentAssignment = c.assignments?.find((a: any) => a.userId.toString() === parentId);
-      const parentDirect = c.assignedVendors?.some((id: any) => id.toString() === parentId);
-      const parentHasAccess = parentDirect || (parentAssignment && ['assigned', 'approved', 'active'].includes(parentAssignment.status));
+      const parentHasAccess = parentAssignment && ['assigned', 'approved', 'active'].includes(parentAssignment.status);
 
       if (parentHasAccess) {
-        // Strip sensitive data based on visibility options
-        // ALWAYS Strip sensitive data for sub-vendors as per requirements
+        // Strip sensitive data completely for members
         const campaignData = c.toObject();
         delete campaignData.charges;
         delete campaignData.securityDeposit;
         delete campaignData.salaryStructure;
         delete campaignData.targetDetails;
+        delete campaignData.visibilityOptions;
 
-        const subAssignment = c.assignments?.find((a: any) => a.userId.toString() === subVendorId);
+        const memberAssignment = c.assignments?.find((a: any) => a.userId.toString() === memberId);
         
-        if (subAssignment?.status === 'active' || subAssignment?.status === 'approved' || subAssignment?.status === 'assigned') {
+        if (memberAssignment?.status === 'active' || memberAssignment?.status === 'approved' || memberAssignment?.status === 'assigned') {
           assigned.push({ ...campaignData, currentStatus: 'assigned' });
-        } else if (subAssignment?.status === 'requested') {
+        } else if (memberAssignment?.status === 'requested') {
           requested.push({ ...campaignData, currentStatus: 'requested' });
         } else {
           available.push({ ...campaignData, currentStatus: 'available' });
@@ -60,25 +58,24 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// Sub-Vendor requests a campaign from their Parent Vendor
 export async function POST(req: NextRequest) {
   try {
     const session = await getAuthSession();
-    if (!session || (session as any).role !== 'sub_vendor') return errorResponse('Unauthorized', 403);
+    if (!session || (session as any).role !== 'member') return errorResponse('Unauthorized', 403);
 
-    const subVendorId = (session as any).id;
+    const memberId = (session as any).id;
     const body = await req.json();
     const { campaignId } = body;
 
     await dbConnect();
     
-    const subVendor = await User.findById(subVendorId);
-    if (!subVendor?.parentUser) return errorResponse('No parent vendor assigned', 400);
+    const member = await User.findById(memberId);
+    if (!member?.parentUser) return errorResponse('No parent assigned', 400);
 
     const campaign = await Campaign.findById(campaignId);
     if (!campaign) return errorResponse('Campaign not found', 404);
 
-    const existingRequest = campaign.assignments?.find((a: any) => a.userId.toString() === subVendorId);
+    const existingRequest = campaign.assignments?.find((a: any) => a.userId.toString() === memberId);
     if (existingRequest) {
       return errorResponse('You have already requested or been assigned this campaign.', 400);
     }
@@ -86,7 +83,7 @@ export async function POST(req: NextRequest) {
     if (!campaign.assignments) campaign.assignments = [];
     
     campaign.assignments.push({
-      userId: subVendorId,
+      userId: memberId,
       status: 'requested',
       requestedAt: new Date(),
       updatedAt: new Date()
@@ -94,7 +91,7 @@ export async function POST(req: NextRequest) {
 
     await campaign.save();
 
-    return successResponse(null, 'Campaign request submitted to your vendor successfully');
+    return successResponse(null, 'Campaign request submitted successfully');
   } catch (error: any) {
     return errorResponse(error.message, 500);
   }

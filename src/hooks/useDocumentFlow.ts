@@ -24,9 +24,10 @@ export function useDocumentFlow({
   const uploadDocument = async (file: File, type: string) => {
     if (uploading === type) return;
 
-    // Strict PDF Validation
-    if (file.type !== 'application/pdf') {
-      alert("Only PDF documents are accepted for verification.");
+    // Strict Format Validation
+    const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      alert("Invalid format. Only PDF, JPG, PNG, and WEBP files are accepted.");
       return;
     }
 

@@ -52,11 +52,11 @@ export const DOCUMENT_STATUS_MAP: Record<string, { label: string; className: str
 };
 
 /**
- * Returns a proxy URL for viewing PDFs with correct Content-Type headers.
+ * Returns the unified Document Viewer URL for viewing PDFs and Images securely.
  */
 export function getDocumentViewUrl(url: string | undefined | null): string {
   if (!url || typeof url !== 'string' || url.trim() === '') return '';
-  return `/api/documents/view?url=${encodeURIComponent(url)}`;
+  return `/document-viewer?url=${encodeURIComponent(url)}`;
 }
 
 /**
