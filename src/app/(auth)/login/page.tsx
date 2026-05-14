@@ -15,8 +15,11 @@ import {
   ArrowRight as ArrowIcon,
   ChevronRight as ChevronIcon,
   Lock as LockIcon,
-  AlertCircle as AlertIcon
+  AlertCircle as AlertIcon,
+  Eye as EyeIcon,
+  EyeOff as EyeOffIcon
 } from "lucide-react";
+import PasswordField from "@/components/ui/PasswordField";
 
 type Role = 'member' | 'employee' | 'vendor' | 'sub_vendor';
 
@@ -194,18 +197,13 @@ function LoginContent() {
                 <label className="text-xs font-black text-gray-500 uppercase tracking-widest">Password</label>
                 <Link href="/forgot" className="text-xs text-primary font-black hover:underline">Forgot Password?</Link>
               </div>
-              <div className="relative group">
-                <LockIcon size={18} className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-primary transition-colors" />
-                <input
-                  type="password"
-                  name="password"
-                  value={formData.password}
-                  onChange={handleChange}
-                  placeholder="********"
-                  className="w-full pl-14 pr-5 py-4 md:py-5 rounded-2xl md:rounded-3xl border border-gray-100 bg-gray-50 focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary/30 transition-all font-bold text-lg"
-                  required
-                />
-              </div>
+              <PasswordField
+                name="password"
+                value={formData.password}
+                onChange={handleChange}
+                placeholder="********"
+                required
+              />
             </div>
 
             <AnimatePresence>
