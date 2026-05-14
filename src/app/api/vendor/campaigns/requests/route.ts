@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
     const campaigns = await Campaign.find({ status: 'active' });
     
     // Find all sub-vendors and employees who report to this vendor
-    const downline = await User.find({ parentUser: vendorId }).select('fullName role');
+    const downline = await User.find({ parentVendorId: vendorId }).select('fullName role email mobile state district block area');
     const downlineIds = downline.map(u => u._id.toString());
 
     const pendingRequests: any[] = [];
@@ -34,6 +34,9 @@ export async function GET(req: NextRequest) {
             userId: a.userId,
             userName: user?.fullName,
             userRole: user?.role,
+            userEmail: user?.email,
+            userMobile: user?.mobile,
+            userLocation: `${user?.area || ''} ${user?.block || ''} ${user?.district || ''}`.trim(),
             requestedAt: a.requestedAt,
             status: a.status
           });

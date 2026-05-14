@@ -16,9 +16,9 @@ export async function GET(req: NextRequest) {
 
     const memberId = (session as any).id;
     const member = await User.findById(memberId);
-    if (!member?.parentUser) return errorResponse('No parent employee assigned', 400);
+    if (!member?.parentVendorId) return errorResponse('No parent employee assigned', 400);
 
-    const parentId = member.parentUser.toString();
+    const parentId = member.parentVendorId.toString();
 
     const allCampaigns = await Campaign.find({ status: 'active' });
 
@@ -70,7 +70,7 @@ export async function POST(req: NextRequest) {
     await dbConnect();
     
     const member = await User.findById(memberId);
-    if (!member?.parentUser) return errorResponse('No parent assigned', 400);
+    if (!member?.parentVendorId) return errorResponse('No parent assigned', 400);
 
     const campaign = await Campaign.findById(campaignId);
     if (!campaign) return errorResponse('Campaign not found', 404);

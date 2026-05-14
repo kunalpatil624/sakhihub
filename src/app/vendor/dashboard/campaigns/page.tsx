@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import DashboardLayout from "@/components/features/dashboard/DashboardLayout";
-import { Target, Calendar, Plus, ExternalLink, Users, IndianRupee, BookOpen, Download, ArrowRight, Sparkles, Check, X, Clock } from "lucide-react";
+import { Target, Calendar, Plus, ExternalLink, Users, IndianRupee, BookOpen, Download, ArrowRight, Sparkles, Check, X, Clock, Mail, Phone, MapPin } from "lucide-react";
 import axios from "axios";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
@@ -168,9 +168,26 @@ export default function VendorCampaigns() {
                             </div>
                             <div>
                               <h4 className="text-xl font-black text-secondary">{req.campaignTitle}</h4>
-                              <div className="flex items-center gap-3 mt-1">
+                              <div className="flex flex-wrap items-center gap-3 mt-1 mb-2">
                                 <span className="text-sm font-bold text-gray-500">{req.userName}</span>
                                 <span className="px-3 py-1 bg-gray-100 text-[10px] font-black uppercase tracking-widest text-gray-400 rounded-full">{req.userRole}</span>
+                              </div>
+                              <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+                                {req.userEmail && (
+                                  <div className="flex items-center gap-2 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                                    <Mail size={12} className="text-primary" /> {req.userEmail}
+                                  </div>
+                                )}
+                                {req.userMobile && (
+                                  <div className="flex items-center gap-2 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                                    <Phone size={12} className="text-primary" /> {req.userMobile}
+                                  </div>
+                                )}
+                                {req.userLocation && (
+                                  <div className="flex items-center gap-2 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                                    <MapPin size={12} className="text-primary" /> {req.userLocation}
+                                  </div>
+                                )}
                               </div>
                             </div>
                           </div>

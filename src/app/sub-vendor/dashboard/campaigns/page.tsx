@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import DashboardLayout from "@/components/features/dashboard/DashboardLayout";
-import { Target, Calendar, Plus, ExternalLink, Users, IndianRupee, BookOpen, Download, ArrowRight, Sparkles } from "lucide-react";
+import { Target, Calendar, Plus, ExternalLink, Users, IndianRupee, BookOpen, Download, ArrowRight, Sparkles, Clock } from "lucide-react";
 import axios from "axios";
 import { motion } from "framer-motion";
 

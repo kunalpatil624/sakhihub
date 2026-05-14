@@ -16,9 +16,9 @@ export async function GET(req: NextRequest) {
 
     const employeeId = (session as any).id;
     const employee = await User.findById(employeeId);
-    if (!employee?.parentUser) return errorResponse('No parent sub-vendor assigned', 400);
+    if (!employee?.parentVendorId) return errorResponse('No parent sub-vendor assigned', 400);
 
-    const parentId = employee.parentUser.toString();
+    const parentId = employee.parentVendorId.toString();
 
     // Active campaigns available for recruitment
     const allCampaigns = await Campaign.find({ status: 'active' });
@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
     await dbConnect();
     
     const employee = await User.findById(employeeId);
-    if (!employee?.parentUser) return errorResponse('No parent assigned', 400);
+    if (!employee?.parentVendorId) return errorResponse('No parent assigned', 400);
 
     const campaign = await Campaign.findById(campaignId);
     if (!campaign) return errorResponse('Campaign not found', 404);
