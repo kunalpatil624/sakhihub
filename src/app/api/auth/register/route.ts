@@ -195,6 +195,7 @@ export async function POST(req: NextRequest) {
         occupation,
         interests,
         createdBy: newUser._id, // Self-registered
+        assignedEmployeeId: parentVendorId || undefined,
         accountStatus: memberAccountStatus,
         connectionStatus: memberConnectionStatus,
         membershipStatus: 'free'

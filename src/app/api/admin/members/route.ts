@@ -35,6 +35,14 @@ export async function GET(req: NextRequest) {
     const members = await WomenMember.find(query)
       .populate('groupId', 'groupName village district')
       .populate('assignedEmployeeId', 'fullName mobile employeeId')
+      .populate({
+        path: 'userId',
+        select: 'parentVendorId',
+        populate: {
+          path: 'parentVendorId',
+          select: 'fullName mobile employeeId'
+        }
+      })
       .sort({ createdAt: -1 });
 
     // Attach membership status to each member
@@ -43,9 +51,15 @@ export async function GET(req: NextRequest) {
 
     const data = members.map(member => {
       const membership = memberships.find(m => m.memberId.toString() === member._id.toString());
+      
+      // Fallback: If assignedEmployeeId is missing in WomenMember, 
+      // but parentVendorId exists in the linked User record, use that.
+      const employee = member.assignedEmployeeId || (member.userId as any)?.parentVendorId;
+
       return {
         ...member.toObject(),
-        paymentStatus: member.membershipStatus === 'paid' ? 'Paid' : 'Pending', // Sync with new status field
+        assignedEmployeeId: employee, // Unified employee field
+        paymentStatus: member.membershipStatus === 'paid' ? 'Paid' : 'Pending',
         membershipId: membership?.membershipId || 'N/A',
         accountStatus: member.accountStatus,
         connectionStatus: member.connectionStatus
