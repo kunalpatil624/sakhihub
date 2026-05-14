@@ -5,6 +5,7 @@ import { Calendar, Target, Users, ArrowRight, Download, BookOpen, Sparkles } fro
 import axios from 'axios';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
+import DashboardLayout from "@/components/features/dashboard/DashboardLayout";
 
 export default function EmployeeCampaignsPage() {
   const [assigned, setAssigned] = useState<any[]>([]);
@@ -16,9 +17,9 @@ export default function EmployeeCampaignsPage() {
     try {
       const res = await axios.get('/api/employee/campaigns');
       if (res.data.success) {
-        setAssigned(res.data.data.assigned);
-        setRequested(res.data.data.requested);
-        setAvailable(res.data.data.available);
+        setAssigned(res.data.data.assigned || []);
+        setRequested(res.data.data.requested || []);
+        setAvailable(res.data.data.available || []);
       }
     } catch (err) {
       console.error("Failed to fetch campaigns", err);
@@ -31,69 +32,75 @@ export default function EmployeeCampaignsPage() {
     fetchCampaigns();
   }, []);
 
-  if (loading) return <div className="p-10 text-center font-bold text-gray-400">Loading Assigned Campaigns...</div>;
-
   return (
-    <div className="p-4 md:p-8">
-      <div className="mb-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-        <div>
-          <h2 className="text-3xl md:text-5xl font-black text-secondary tracking-tight">Active Campaigns</h2>
-          <p className="mt-4 text-primary font-bold text-sm md:text-lg">Track and manage your assigned community drives</p>
-        </div>
-        <div className="flex gap-4">
-           <div className="bg-white p-4 rounded-3xl border border-gray-100 shadow-soft flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-primary/10 flex items-center justify-center text-primary"><Target size={20} /></div>
-              <div>
-                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Total Assigned</p>
-                <p className="text-lg font-black text-secondary">{assigned.length}</p>
-              </div>
-           </div>
-        </div>
-      </div>
-
+    <DashboardLayout>
       <div className="flex flex-col gap-10">
-        {assigned.length > 0 && (
+        <div className="mb-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
           <div>
-            <h3 className="text-2xl font-black text-secondary mb-6 flex items-center gap-3"><span className="w-3 h-3 rounded-full bg-green-500"></span> Assigned Campaigns</h3>
-            <div className="flex flex-col gap-6">
-              {assigned.map((camp) => (
-                <CampaignCard key={camp._id} camp={camp} type="assigned" />
-              ))}
-            </div>
+            <h2 className="text-3xl md:text-5xl font-black text-secondary tracking-tight">Active Campaigns</h2>
+            <p className="mt-4 text-primary font-bold text-sm md:text-lg uppercase tracking-wider">Track and manage your assigned community drives</p>
           </div>
-        )}
-
-        {requested.length > 0 && (
-          <div>
-            <h3 className="text-2xl font-black text-secondary mb-6 flex items-center gap-3"><span className="w-3 h-3 rounded-full bg-amber-500"></span> Requested Campaigns</h3>
-            <div className="flex flex-col gap-6">
-              {requested.map((camp) => (
-                <CampaignCard key={camp._id} camp={camp} type="requested" />
-              ))}
-            </div>
+          <div className="flex gap-4">
+             <div className="bg-white p-4 rounded-3xl border border-gray-100 shadow-soft flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-primary/10 flex items-center justify-center text-primary"><Target size={20} /></div>
+                <div>
+                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Total Assigned</p>
+                  <p className="text-lg font-black text-secondary">{assigned.length}</p>
+                </div>
+             </div>
           </div>
-        )}
+        </div>
 
-        {available.length > 0 && (
-          <div>
-            <h3 className="text-2xl font-black text-secondary mb-6 flex items-center gap-3"><span className="w-3 h-3 rounded-full bg-blue-500"></span> Available for Request</h3>
-            <div className="flex flex-col gap-6">
-              {available.map((camp) => (
-                <CampaignCard key={camp._id} camp={camp} type="available" onFetch={fetchCampaigns} />
-              ))}
-            </div>
+        {loading ? (
+          <div className="bg-white p-20 rounded-[40px] border border-gray-100 shadow-soft text-center">
+            <div className="text-gray-400 font-bold italic animate-pulse">Syncing with campaign registry...</div>
           </div>
-        )}
+        ) : (
+          <div className="flex flex-col gap-10">
+            {assigned.length > 0 && (
+              <div>
+                <h3 className="text-2xl font-black text-secondary mb-6 flex items-center gap-3"><span className="w-3 h-3 rounded-full bg-green-500"></span> Assigned Campaigns</h3>
+                <div className="flex flex-col gap-6">
+                  {assigned.map((camp) => (
+                    <CampaignCard key={camp._id} camp={camp} type="assigned" />
+                  ))}
+                </div>
+              </div>
+            )}
 
-        {assigned.length === 0 && requested.length === 0 && available.length === 0 && (
-          <div className="bg-white p-20 rounded-[40px] border-2 border-dashed border-gray-100 text-center">
-             <Sparkles size={60} className="text-gray-200 mx-auto mb-6" />
-             <h3 className="text-2xl font-black text-secondary">No campaigns found.</h3>
-             <p className="text-gray-400 font-bold mt-2">Wait for your senior to assign new community drives.</p>
+            {requested.length > 0 && (
+              <div>
+                <h3 className="text-2xl font-black text-secondary mb-6 flex items-center gap-3"><span className="w-3 h-3 rounded-full bg-amber-500"></span> Requested Campaigns</h3>
+                <div className="flex flex-col gap-6">
+                  {requested.map((camp) => (
+                    <CampaignCard key={camp._id} camp={camp} type="requested" />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {available.length > 0 && (
+              <div>
+                <h3 className="text-2xl font-black text-secondary mb-6 flex items-center gap-3"><span className="w-3 h-3 rounded-full bg-blue-500"></span> Available for Request</h3>
+                <div className="flex flex-col gap-6">
+                  {available.map((camp) => (
+                    <CampaignCard key={camp._id} camp={camp} type="available" onFetch={fetchCampaigns} />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {assigned.length === 0 && requested.length === 0 && available.length === 0 && (
+              <div className="bg-white p-20 rounded-[40px] border-2 border-dashed border-gray-100 text-center">
+                 <Sparkles size={60} className="text-gray-200 mx-auto mb-6" />
+                 <h3 className="text-2xl font-black text-secondary">No campaigns found.</h3>
+                 <p className="text-gray-400 font-bold mt-2">Wait for your senior to assign new community drives.</p>
+              </div>
+            )}
           </div>
         )}
       </div>
-    </div>
+    </DashboardLayout>
   );
 }
 

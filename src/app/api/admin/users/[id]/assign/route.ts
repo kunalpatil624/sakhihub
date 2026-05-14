@@ -17,7 +17,8 @@ export async function PATCH(
       return errorResponse('Unauthorized. Admin access required.', 403);
     }
 
-    const { parentVendorId, campaignId, vendorCode, subVendorCode } = await req.json();
+    const body = await req.json();
+    const { parentVendorId, campaignId, vendorCode, subVendorCode } = body;
     
     await dbConnect();
 
@@ -31,10 +32,10 @@ export async function PATCH(
       updatedAt: new Date()
     };
 
-    if (parentVendorId) updateData.parentVendorId = parentVendorId;
-    if (campaignId) updateData.campaignId = campaignId;
-    if (vendorCode) updateData.vendorCode = vendorCode;
-    if (subVendorCode) updateData.subVendorCode = subVendorCode;
+    if ('parentVendorId' in body) updateData.parentVendorId = parentVendorId;
+    if ('campaignId' in body) updateData.campaignId = campaignId;
+    if ('vendorCode' in body) updateData.vendorCode = vendorCode;
+    if ('subVendorCode' in body) updateData.subVendorCode = subVendorCode;
 
     // AUTO-UNLOCK RULE: 
     // If the user is a sub-vendor or employee and has already been "activated" by admin 

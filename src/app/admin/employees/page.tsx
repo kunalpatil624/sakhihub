@@ -83,8 +83,8 @@ export default function EmployeeManagement() {
     }
   };
 
-  const handleAssignPartner = async (partnerId: string) => {
-    if (!assignTarget || !partnerId) return;
+  const handleAssignPartner = async (partnerId: string | null) => {
+    if (!assignTarget) return;
     setIsAssigning(true);
     try {
       const res = await axios.patch(`/api/admin/users/${assignTarget._id}/assign`, { 
@@ -99,6 +99,7 @@ export default function EmployeeManagement() {
       }
     } catch (err) {
       console.error(err);
+      alert("Failed to update assignment");
     } finally {
       setIsAssigning(false);
     }
@@ -179,23 +180,26 @@ export default function EmployeeManagement() {
                             </div>
                           </div>
                         </td>
-                        <td className="p-5">
-                          {emp.parentVendorId ? (
-                            <div className="flex flex-col gap-1">
-                              <span className="font-black text-secondary text-xs">Assigned</span>
-                              <span className="text-[10px] text-primary font-bold uppercase tracking-widest flex items-center gap-1">
-                                <Network size={10} /> Network Active
-                              </span>
-                            </div>
-                          ) : (
-                            <button 
-                              onClick={(e) => { e.stopPropagation(); setAssignTarget(emp); }}
-                              className="px-4 py-2 rounded-xl bg-amber-50 text-amber-600 font-black text-[9px] uppercase tracking-widest hover:bg-amber-100 transition-all flex items-center gap-2"
-                            >
-                              <Link2 size={12} /> Assign Parent
-                            </button>
-                          )}
-                        </td>
+                         <td className="p-5">
+                           {emp.parentVendorId ? (
+                             <div className="flex flex-col gap-1 group/link">
+                               <span className="font-black text-secondary text-xs">Assigned</span>
+                               <button 
+                                 onClick={(e) => { e.stopPropagation(); setAssignTarget(emp); }}
+                                 className="text-[10px] text-primary font-bold uppercase tracking-widest flex items-center gap-1 hover:underline"
+                               >
+                                 <Network size={10} /> Network Active <Edit2 size={10} className="ml-1 opacity-0 group-hover/link:opacity-100 transition-opacity" />
+                               </button>
+                             </div>
+                           ) : (
+                             <button 
+                               onClick={(e) => { e.stopPropagation(); setAssignTarget(emp); }}
+                               className="px-4 py-2 rounded-xl bg-amber-50 text-amber-600 font-black text-[9px] uppercase tracking-widest hover:bg-amber-100 transition-all flex items-center gap-2"
+                             >
+                               <Link2 size={12} /> Assign Parent
+                             </button>
+                           )}
+                         </td>
                         <td className="p-5">
                           <div className="flex items-center gap-2">
                              <div className="h-1.5 w-16 bg-gray-100 rounded-full overflow-hidden">
@@ -350,7 +354,12 @@ export default function EmployeeManagement() {
                         >Suspend Employee</button>
                       )}
                       
-                      {!selectedEmp.parentVendorId && (
+                      {selectedEmp.parentVendorId ? (
+                        <button 
+                          onClick={() => setAssignTarget(selectedEmp)}
+                          className="px-8 py-4 bg-amber-50 text-amber-600 font-black text-xs uppercase tracking-widest rounded-2xl hover:bg-amber-100 transition-all flex items-center gap-2"
+                        ><Edit2 size={16} /> Change Parent</button>
+                      ) : (
                         <button 
                           onClick={() => setAssignTarget(selectedEmp)}
                           className="px-8 py-4 bg-secondary text-white font-black text-xs uppercase tracking-widest rounded-2xl shadow-xl shadow-secondary/20 hover:scale-105 transition-all flex items-center gap-2"
@@ -380,13 +389,27 @@ export default function EmployeeManagement() {
                 initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
                 className="relative bg-white w-full max-w-2xl rounded-[40px] shadow-2xl overflow-hidden flex flex-col max-h-[80vh]"
               >
-                <div className="bg-primary p-8 text-white flex justify-between items-center">
-                   <div>
-                      <h3 className="text-2xl font-black italic">Network Hierarchy Mapping</h3>
-                      <p className="text-[10px] font-bold uppercase tracking-widest opacity-80 mt-1">Select a Vendor or Sub-Vendor for {assignTarget.fullName}</p>
-                   </div>
-                   <button onClick={() => setAssignTarget(null)} className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center hover:bg-white/30"><X size={20} /></button>
-                </div>
+                 <div className="bg-primary p-8 text-white flex justify-between items-center">
+                    <div>
+                       <h3 className="text-2xl font-black italic">Network Hierarchy Mapping</h3>
+                       <p className="text-[10px] font-bold uppercase tracking-widest opacity-80 mt-1">Select a Vendor or Sub-Vendor for {assignTarget.fullName}</p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                       {assignTarget.parentVendorId && (
+                         <button 
+                           onClick={() => {
+                             if(confirm("Are you sure you want to remove the current assignment?")) {
+                               handleAssignPartner(null);
+                             }
+                           }}
+                           className="px-4 py-2 bg-red-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-red-600 transition-all flex items-center gap-2"
+                         >
+                           <Trash2 size={14} /> Unlink Current
+                         </button>
+                       )}
+                       <button onClick={() => setAssignTarget(null)} className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center hover:bg-white/30"><X size={20} /></button>
+                    </div>
+                 </div>
 
                 <div className="p-8 overflow-y-auto">
                    <div className="grid grid-cols-1 gap-4">

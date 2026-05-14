@@ -1,5 +1,5 @@
-import { 
-  LayoutDashboard, Users, Heart, Settings, User, 
+import {
+  LayoutDashboard, Users, Heart, Settings, User,
   MapPin, IndianRupee, ClipboardList, Target, Layout, FileText,
   ShieldCheck, Mail
 } from 'lucide-react';
@@ -15,7 +15,7 @@ export const MEMBER_DASHBOARD_LINKS = [
   { name: 'Overview', icon: LayoutDashboard, href: '/member/dashboard' },
   { name: 'My Group', icon: Users, href: '/member/my-group' },
   { name: 'Resources', icon: Heart, href: '/member/resources' },
-  { name: 'Profile', icon: User, href: '/member/profile' },
+  { name: 'My Profile', icon: User, href: '/member/dashboard/profile' },
   { name: 'Settings', icon: Settings, href: '/member/settings' },
 ];
 
@@ -26,7 +26,7 @@ export const EMPLOYEE_DASHBOARD_LINKS = [
   { name: 'Collections', icon: IndianRupee, href: '/employee/membership' },
   { name: 'Daily Reports', icon: ClipboardList, href: '/employee/reports' },
   { name: 'Campaigns', icon: Target, href: '/employee/campaigns' },
-  { name: 'Profile', icon: User, href: '/employee/profile' },
+  { name: 'My Profile', icon: User, href: '/employee/dashboard/profile' },
 ];
 
 export const ADMIN_DASHBOARD_LINKS = [
@@ -40,6 +40,7 @@ export const ADMIN_DASHBOARD_LINKS = [
   { name: 'Campaigns', icon: Target, href: '/admin/campaigns' },
   { name: 'Activity Reports', icon: FileText, href: '/admin/reports' },
   { name: 'Support Queries', icon: Mail, href: '/admin/support-requests' },
+  { name: 'My Profile', icon: User, href: '/admin/profile' },
   { name: 'CMS Manage', icon: Settings, href: '/admin/cms' },
 ];
 
@@ -52,6 +53,7 @@ export const VENDOR_DASHBOARD_LINKS = [
   { name: 'Members', icon: User, href: '/vendor/dashboard/members' },
   { name: 'Payments', icon: IndianRupee, href: '/vendor/dashboard/payments' },
   { name: 'Documents', icon: FileText, href: '/vendor/dashboard/documents' },
+  { name: 'My Profile', icon: User, href: '/vendor/dashboard/profile' },
   { name: 'Support', icon: Heart, href: '/vendor/dashboard/support' },
 ];
 
@@ -63,5 +65,6 @@ export const SUBVENDOR_DASHBOARD_LINKS = [
   { name: 'Members', icon: User, href: '/sub-vendor/dashboard/members' },
   { name: 'Payments', icon: IndianRupee, href: '/sub-vendor/dashboard/payments' },
   { name: 'Documents', icon: FileText, href: '/sub-vendor/dashboard/documents' },
+  { name: 'My Profile', icon: User, href: '/sub-vendor/dashboard/profile' },
   { name: 'Support', icon: Heart, href: '/sub-vendor/dashboard/support' },
 ];

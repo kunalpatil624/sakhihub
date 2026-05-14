@@ -30,7 +30,8 @@ export async function GET(req: NextRequest) {
     allCampaigns.forEach((c) => {
       // Check if parent has access
       const parentAssignment = c.assignments?.find((a: any) => a.userId.toString() === parentId);
-      const parentHasAccess = parentAssignment && ['assigned', 'approved', 'active'].includes(parentAssignment.status);
+      const parentDirect = c.assignedVendors?.some((id: any) => id.toString() === parentId);
+      const parentHasAccess = parentDirect || (parentAssignment && ['assigned', 'approved', 'active'].includes(parentAssignment.status));
 
       if (parentHasAccess) {
         // Strip sensitive data based on visibility options

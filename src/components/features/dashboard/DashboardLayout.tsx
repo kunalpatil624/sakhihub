@@ -207,15 +207,22 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
               <span className="absolute top-2 right-2 w-2 h-2 bg-primary rounded-full border-2 border-white"></span>
             </button>
 
-            <div className="flex items-center gap-3 pl-3 md:pl-5 border-l border-[#eee]">
+            <Link 
+              href={user?.role === 'super_admin' ? '/admin/profile' : `/${user?.role?.replace('_', '-')}/dashboard/profile`}
+              className="flex items-center gap-3 pl-3 md:pl-5 border-l border-[#eee] no-underline group"
+            >
               <div className="text-right hidden sm:block">
-                <p className="font-semibold text-secondary text-sm truncate max-w-[120px]">{user?.fullName}</p>
-                <p className="text-[10px] text-gray-400 uppercase tracking-widest font-bold">{user?.role}</p>
+                <p className="font-semibold text-secondary text-sm truncate max-w-[120px] group-hover:text-primary transition-colors">{user?.fullName}</p>
+                <p className="text-[10px] text-gray-400 uppercase tracking-widest font-bold">{user?.role?.replace('_', ' ')}</p>
               </div>
-              <div className="w-9 h-9 md:w-11 md:h-11 rounded-full bg-gradient-to-br from-primary to-secondary text-white flex items-center justify-center font-bold text-sm md:text-base shadow-lg shadow-primary/20 ring-2 ring-white">
-                {user?.fullName?.charAt(0)}
+              <div className="w-9 h-9 md:w-11 md:h-11 rounded-full bg-gradient-to-br from-primary to-secondary text-white flex items-center justify-center font-bold text-sm md:text-base shadow-lg shadow-primary/20 ring-2 ring-white overflow-hidden group-hover:ring-primary/30 transition-all">
+                {user?.profileImage ? (
+                  <img src={user.profileImage} alt={user.fullName} className="w-full h-full object-cover" />
+                ) : (
+                  user?.fullName?.charAt(0)
+                )}
               </div>
-            </div>
+            </Link>
           </div>
         </header>
 
