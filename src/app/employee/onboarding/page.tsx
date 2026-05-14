@@ -27,6 +27,12 @@ export default function EmployeeOnboarding() {
         const user = res.data.data;
         setProfile(user);
         
+        // Check restricted statuses first
+        if (['rejected', 'suspended', 'inactive'].includes(user.status)) {
+          router.push('/pending-approval');
+          return;
+        }
+
         // STRICT GATE: Only allow access to dashboard if both compliance and hierarchy are done
         if (user.dashboardAccess && user.documentsVerified && user.assignmentStatus === 'completed') {
           router.push('/employee/dashboard');

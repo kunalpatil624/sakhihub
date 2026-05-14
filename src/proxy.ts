@@ -31,6 +31,11 @@ export async function proxy(request: NextRequest) {
     try {
       const { payload }: any = await jwtVerify(token, JWT_SECRET);
 
+      // Check restricted statuses first
+      if (['rejected', 'suspended', 'inactive'].includes(payload.status)) {
+        return NextResponse.redirect(new URL('/pending-approval', request.url));
+      }
+
       // Strict Role & Status Redirects
       if (payload.role === 'super_admin') return NextResponse.redirect(new URL('/admin/dashboard', request.url));
 
@@ -101,31 +106,23 @@ export async function proxy(request: NextRequest) {
 
         // Page Protection
         if (isSubVendorPage) {
-          // Rule 1: Assignment Check (Higher Priority)
-          // If trying to access any sub-vendor page but assignment is pending, force them to pending-assignment
-          // (Wait, they still need to be able to access onboarding to upload docs)
-          if (payload.assignmentStatus !== 'completed' && pathname !== '/sub-vendor/onboarding' && pathname !== '/pending-assignment') {
-            // Only redirect if they have already finished onboarding or are trying to bypass it
-            if (payload.dashboardAccess || pathname.startsWith('/sub-vendor/dashboard')) {
-              return NextResponse.redirect(new URL('/pending-assignment', request.url));
-            }
-          }
-
-          // Rule 2: Onboarding/Dashboard Toggle
+          // STEP 1: Document Verification is HIGHEST priority
           if (!payload.documentsVerified && pathname !== '/sub-vendor/onboarding') {
             return NextResponse.redirect(new URL('/sub-vendor/onboarding', request.url));
           }
-          if (payload.documentsVerified && pathname === '/sub-vendor/onboarding') {
-            // If they have documentsVerified, check assignment before letting them into dashboard
-            if (payload.assignmentStatus !== 'completed') {
+
+          // STEP 2: Hierarchy Mapping is SECOND priority (only checked if docs are verified)
+          if (payload.documentsVerified && payload.assignmentStatus !== 'completed') {
+            // If they are not already on pending-assignment, send them there
+            if (pathname !== '/pending-assignment' && pathname !== '/sub-vendor/onboarding') {
               return NextResponse.redirect(new URL('/pending-assignment', request.url));
             }
-            return NextResponse.redirect(new URL('/sub-vendor/dashboard', request.url));
           }
 
-          // Rule 3: Final Dashboard Gate
-          if (pathname.startsWith('/sub-vendor/dashboard') && payload.assignmentStatus !== 'completed') {
-            return NextResponse.redirect(new URL('/pending-assignment', request.url));
+          // STEP 3: Dashboard Access (Final Gate)
+          if (pathname.startsWith('/sub-vendor/dashboard')) {
+            if (!payload.documentsVerified) return NextResponse.redirect(new URL('/sub-vendor/onboarding', request.url));
+            if (payload.assignmentStatus !== 'completed') return NextResponse.redirect(new URL('/pending-assignment', request.url));
           }
         }
       }
@@ -133,27 +130,22 @@ export async function proxy(request: NextRequest) {
       // EMPLOYEE STRICT ACCESS CONTROL
       if (payload.role === 'employee') {
         if (isEmployeePage) {
-          // Rule 1: Assignment Check (Higher Priority)
-          if (payload.assignmentStatus !== 'completed' && pathname !== '/employee/onboarding' && pathname !== '/pending-assignment') {
-            if (payload.dashboardAccess || pathname.startsWith('/employee/dashboard')) {
-              return NextResponse.redirect(new URL('/pending-assignment', request.url));
-            }
-          }
-
-          // Rule 2: Onboarding/Dashboard Toggle
+          // STEP 1: Document Verification is HIGHEST priority
           if (!payload.documentsVerified && pathname !== '/employee/onboarding') {
             return NextResponse.redirect(new URL('/employee/onboarding', request.url));
           }
-          if (payload.documentsVerified && pathname === '/employee/onboarding') {
-            if (payload.assignmentStatus !== 'completed') {
+
+          // STEP 2: Hierarchy Mapping is SECOND priority (only checked if docs are verified)
+          if (payload.documentsVerified && payload.assignmentStatus !== 'completed') {
+            if (pathname !== '/pending-assignment' && pathname !== '/employee/onboarding') {
               return NextResponse.redirect(new URL('/pending-assignment', request.url));
             }
-            return NextResponse.redirect(new URL('/employee/dashboard', request.url));
           }
 
-          // Rule 3: Final Dashboard Gate
-          if (pathname.startsWith('/employee/dashboard') && payload.assignmentStatus !== 'completed') {
-            return NextResponse.redirect(new URL('/pending-assignment', request.url));
+          // STEP 3: Dashboard Access (Final Gate)
+          if (pathname.startsWith('/employee/dashboard')) {
+            if (!payload.documentsVerified) return NextResponse.redirect(new URL('/employee/onboarding', request.url));
+            if (payload.assignmentStatus !== 'completed') return NextResponse.redirect(new URL('/pending-assignment', request.url));
           }
         }
       }
@@ -161,6 +153,13 @@ export async function proxy(request: NextRequest) {
       // MEMBER PROTECTION
       if (payload.role === 'member' && !['active', 'approved'].includes(payload.status)) {
         if (pathname !== '/pending-approval' && pathname !== '/pending-assignment') {
+          return NextResponse.redirect(new URL('/pending-approval', request.url));
+        }
+      }
+
+      // RESTRICTED STATUS PROTECTION (All roles)
+      if (['rejected', 'suspended', 'inactive'].includes(payload.status)) {
+        if (pathname !== '/pending-approval') {
           return NextResponse.redirect(new URL('/pending-approval', request.url));
         }
       }
