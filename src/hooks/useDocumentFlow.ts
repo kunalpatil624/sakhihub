@@ -37,13 +37,15 @@ export function useDocumentFlow({
 
     setUploading(type);
     try {
-      const base64 = await fileToDataUrl(file);
-      const res = await axios.post(uploadUrl, {
-        file: base64,
-        type,
-        fileName: file.name,
-        fileSize: `${(file.size / (1024 * 1024)).toFixed(2)} MB`,
-        mimeType: file.type,
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('type', type);
+      formData.append('fileName', file.name);
+      formData.append('fileSize', `${(file.size / (1024 * 1024)).toFixed(2)} MB`);
+      formData.append('mimeType', file.type);
+
+      const res = await axios.post(uploadUrl, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
       });
 
       if (res.data.success) {

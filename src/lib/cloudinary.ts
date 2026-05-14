@@ -10,17 +10,17 @@ export const uploadToCloudinary = async (fileUri: string, folder: string, option
   try {
     const isPDF = fileUri.startsWith('data:application/pdf');
     
-    // For PDFs, we enforce resource_type 'raw' to avoid Cloudinary's image 
-    // processing pipeline which blocks PDF viewing on many free accounts.
+    // For PDFs, we enforce resource_type 'image' to avoid Cloudinary's free tier
+    // malware protection blocking delivery of 'raw' files ("Customer is marked as untrusted").
     let finalPublicId = options.public_id;
     if (isPDF && !finalPublicId) {
-      // Must append .pdf in public_id for 'raw' files so Cloudinary recognizes the type
-      finalPublicId = `doc_${Date.now()}_${Math.random().toString(36).substring(7)}.pdf`;
+      finalPublicId = `doc_${Date.now()}_${Math.random().toString(36).substring(7)}`;
     }
 
     const uploadOptions = {
       invalidate: true,
-      resource_type: isPDF ? "raw" : "auto",
+      resource_type: "image", // Force image type, which handles PDFs correctly without blocking
+      ...(isPDF ? { format: 'pdf', flags: 'attachment:false' } : {}),
       folder: `sakhihub/${folder}`,
       ...(finalPublicId ? { public_id: finalPublicId } : {}),
       ...options

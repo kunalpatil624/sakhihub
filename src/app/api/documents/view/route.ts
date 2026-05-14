@@ -19,29 +19,14 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const response = await fetch(url);
-
-    if (!response.ok) {
-      return NextResponse.json(
-        { success: false, message: `Failed to fetch document: ${response.status}` },
-        { status: response.status }
-      );
-    }
-
-    const pdfBuffer = await response.arrayBuffer();
-
-    return new NextResponse(pdfBuffer, {
-      status: 200,
-      headers: {
-        'Content-Type': 'application/pdf',
-        'Content-Disposition': 'inline',
-        'Cache-Control': 'public, max-age=86400, s-maxage=86400',
-      },
-    });
+    // With the new upload logic (resource_type: 'image'), Cloudinary natively serves 
+    // PDFs with the correct 'application/pdf' Content-Type and allows inline viewing.
+    // We can safely redirect the user directly to the Cloudinary URL.
+    return NextResponse.redirect(new URL(url));
   } catch (error: any) {
-    console.error('Document proxy error:', error);
+    console.error('Document redirect error:', error);
     return NextResponse.json(
-      { success: false, message: 'Failed to load document' },
+      { success: false, message: 'Failed to open document' },
       { status: 500 }
     );
   }

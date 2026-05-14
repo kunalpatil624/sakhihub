@@ -14,13 +14,25 @@ export const REQUIRED_DOCS_BY_ROLE: Record<string, string[]> = {
  */
 export function getDocumentFolderPath(user: any): string {
   if (!user) return 'sakhihub/misc';
-  const role = user.role || 'unknown';
-  const isVendor = role === 'vendor';
-  const roleFolder = isVendor ? 'vendors' : 'sub-vendors';
-  const email = user.email || '';
-  const id = user._id ? user._id.toString() : Math.random().toString(36).substring(7);
-  const identifier = (email || id).replace(/[@.]/g, '_');
-  return `sakhihub/${roleFolder}/${identifier}`;
+  
+  // Safe role name mapping
+  let role = 'user';
+  if (user.role === 'vendor') role = 'vendor';
+  else if (user.role === 'sub_vendor') role = 'sub-vendor';
+  else if (user.role === 'employee') role = 'employee';
+  
+  // Safe identifier extraction
+  let emailStr = '';
+  if (typeof user.email === 'string') emailStr = user.email;
+  
+  let idStr = '';
+  if (user._id && typeof user._id.toString === 'function') idStr = user._id.toString();
+  else if (typeof user.id === 'string') idStr = user.id;
+
+  const identifier = emailStr ? emailStr.replace(/[@.]/g, '_') : (idStr || 'unknown_user');
+  
+  // Structure: sakhihub / role / identifier / documents
+  return `sakhihub/${role}/${identifier}/documents`;
 }
 
 /**

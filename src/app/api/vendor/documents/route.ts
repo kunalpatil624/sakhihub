@@ -16,7 +16,12 @@ export async function POST(req: NextRequest) {
       return errorResponse('Unauthorized', 401);
     }
 
-    const { file, type, fileName, fileSize, mimeType } = await req.json();
+    const formData = await req.formData();
+    const file = formData.get('file') as File;
+    const type = formData.get('type') as string;
+    const fileName = formData.get('fileName') as string;
+    const fileSize = formData.get('fileSize') as string;
+    const mimeType = formData.get('mimeType') as string;
 
     if (!file || !type) {
       return errorResponse('Missing required fields', 400);
@@ -35,17 +40,48 @@ export async function POST(req: NextRequest) {
       return errorResponse('Invalid document type for this role', 400);
     }
 
-    // Folder path: sakhihub/[role]s/[email_slug]
-    const folder = getDocumentFolderPath(user);
+    // Safely generate folder path: sakhihub/[role]s/[email_slug]
+    const folder = getDocumentFolderPath(user) || `sakhihub/${user.role}s/${user._id}`;
 
-    const uploadResult = await uploadToCloudinary(file, {
-      folder,
-      public_id: `doc_${Date.now()}_${Math.random().toString(36).substring(7)}`,
-      resource_type: 'raw',
-    });
+    // Convert file to buffer
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
 
-    if (!uploadResult) {
+    const isPDF = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+    // Structure publicId as: documentType_timestamp (Do not append .pdf here, format will handle it)
+    const publicId = `${type}_${Date.now()}`;
+
+    const uploadResult = await new Promise((resolve, reject) => {
+      const { v2: cloudinary } = require('cloudinary');
+      cloudinary.config({
+        cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+        api_key: process.env.CLOUDINARY_API_KEY,
+        api_secret: process.env.CLOUDINARY_API_SECRET,
+      });
+
+      cloudinary.uploader.upload_stream(
+        {
+          folder: folder,
+          public_id: publicId,
+          resource_type: 'image', // Must use 'image' for PDFs on free tier to avoid 'Blocked for delivery' error
+          format: isPDF ? 'pdf' : undefined, // Tell Cloudinary to explicitly treat it as PDF
+          flags: 'attachment:false', // Try to ensure it can be opened inline
+          invalidate: true,
+        },
+        (error: any, result: any) => {
+          if (error) reject(error);
+          else resolve(result);
+        }
+      ).end(buffer);
+    }) as any;
+
+    if (!uploadResult || !uploadResult.secure_url) {
       return errorResponse('Cloudinary upload failed', 500);
+    }
+
+    let secureUrl = uploadResult.secure_url;
+    if (isPDF && !secureUrl.toLowerCase().endsWith('.pdf')) {
+      secureUrl = secureUrl + '.pdf';
     }
 
     // Initialize documents object if it doesn't exist
@@ -54,11 +90,11 @@ export async function POST(req: NextRequest) {
     }
 
     user.documents[type] = {
-      url: uploadResult.secure_url,
+      url: secureUrl,
       publicId: uploadResult.public_id,
-      fileName: fileName || `${type}.pdf`,
-      fileSize: fileSize || 'Unknown',
-      mimeType: mimeType || 'application/pdf',
+      fileName: fileName || file.name || `${type}.pdf`,
+      fileSize: fileSize || `${(file.size / (1024 * 1024)).toFixed(2)} MB`,
+      mimeType: mimeType || file.type || 'application/pdf',
       status: 'uploaded',
       uploadedAt: new Date(),
     };
