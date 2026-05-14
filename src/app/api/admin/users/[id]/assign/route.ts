@@ -3,6 +3,7 @@ import dbConnect from '@/lib/mongodb';
 import User from '@/models/User';
 import { getAuthSession } from '@/lib/auth';
 import { successResponse, errorResponse } from '@/utils/response';
+import { areAllDocsApproved } from '@/lib/docs/service';
 
 export async function PATCH(
   req: NextRequest,
@@ -39,8 +40,19 @@ export async function PATCH(
     // If the user is a sub-vendor or employee and has already been "activated" by admin 
     // (status is 'active' or 'approved'), completing the hierarchy assignment should 
     // now automatically unlock dashboard access.
-    if (['sub_vendor', 'employee'].includes(userToUpdate.role) && ['active', 'approved'].includes(userToUpdate.status)) {
-       updateData.dashboardAccess = true;
+    if (['sub_vendor', 'employee'].includes(userToUpdate.role) && ['active', 'approved', 'documents_uploaded'].includes(userToUpdate.status)) {
+       const docsOk = areAllDocsApproved(userToUpdate);
+       if (docsOk) {
+         updateData.documentsVerified = true;
+         updateData.dashboardAccess = true;
+         updateData.onboardingCompleted = true;
+       } else {
+         // Even if docs not fully approved, we set dashboardAccess true IF admin is manually assigning
+         // but middleware will still block if documentsVerified is false.
+         // Let's be consistent: only unlock if docs are ok.
+         updateData.dashboardAccess = false; 
+         updateData.documentsVerified = false;
+       }
     }
 
     const user = await User.findByIdAndUpdate(

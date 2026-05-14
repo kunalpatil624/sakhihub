@@ -25,6 +25,20 @@ export async function GET() {
       return errorResponse('User not found', 404);
     }
 
+    // SELF-HEALING: If documents are approved but flag is false, fix it now.
+    // This handles users who were approved before the strict dual-gate logic was finalized.
+    if (!user.documentsVerified && ['sub_vendor', 'employee'].includes(user.role)) {
+       const { areAllDocsApproved } = await import('@/lib/docs/service');
+       if (areAllDocsApproved(user)) {
+         user.documentsVerified = true;
+         if (user.assignmentStatus === 'completed' && ['active', 'approved'].includes(user.status)) {
+           user.dashboardAccess = true;
+           user.onboardingCompleted = true;
+         }
+         await user.save();
+       }
+    }
+
     // AUTH SYNC LOGIC: 
     // If the database state (dashboardAccess, status, or hierarchy assignment) has changed 
     // since the token was issued, we need to update the token in the cookie to prevent 
@@ -32,8 +46,9 @@ export async function GET() {
     const hasStatusChanged = user.status !== sessionUser.status;
     const hasAccessChanged = user.dashboardAccess !== sessionUser.dashboardAccess;
     const hasAssignmentChanged = user.assignmentStatus !== sessionUser.assignmentStatus;
+    const hasDocsVerifiedChanged = user.documentsVerified !== sessionUser.documentsVerified;
 
-    if (hasStatusChanged || hasAccessChanged || hasAssignmentChanged) {
+    if (hasStatusChanged || hasAccessChanged || hasAssignmentChanged || hasDocsVerifiedChanged) {
       // Strip JWT metadata (iat, exp) from existing session to avoid conflict with signToken's expiresIn
       const { iat, exp, ...cleanPayload } = sessionUser;
       
@@ -42,6 +57,7 @@ export async function GET() {
         dashboardAccess: user.dashboardAccess,
         status: user.status,
         isVerified: user.isVerified,
+        documentsVerified: user.documentsVerified,
         assignmentStatus: user.assignmentStatus,
         parentVendorId: user.parentVendorId,
         vendorCode: user.vendorCode,

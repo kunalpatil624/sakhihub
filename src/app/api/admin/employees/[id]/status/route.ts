@@ -43,14 +43,16 @@ export async function PATCH(
         if (['sub_vendor', 'employee'].includes(userToUpdate.role)) {
            // Check actual documentsVerified flag or re-verify
            const allDocsOk = areAllDocsApproved(userToUpdate);
-           if (allDocsOk && userToUpdate.assignmentStatus === 'completed' && userToUpdate.parentVendorId) {
-             updateData.dashboardAccess = true;
-             updateData.documentsVerified = true;
-           } else {
-             // Mark as active but keep dashboard blocked until BOTH conditions are met
-             updateData.dashboardAccess = false;
-             updateData.documentsVerified = allDocsOk;
-           }
+            if (allDocsOk && userToUpdate.assignmentStatus === 'completed' && userToUpdate.parentVendorId) {
+              updateData.dashboardAccess = true;
+              updateData.documentsVerified = true;
+              updateData.onboardingCompleted = true;
+            } else {
+              // Mark as active but keep dashboard blocked until BOTH conditions are met
+              updateData.dashboardAccess = false;
+              updateData.documentsVerified = allDocsOk;
+              updateData.onboardingCompleted = false;
+            }
         } else {
            // Vendors and other roles get immediate access on activation
            updateData.dashboardAccess = true;
@@ -108,6 +110,7 @@ export async function PATCH(
       // we can automatically unlock dashboard access.
       if (user.documentsVerified && user.assignmentStatus === 'completed' && ['active', 'approved', 'documents_uploaded'].includes(user.status)) {
          user.dashboardAccess = true;
+         user.onboardingCompleted = true;
       }
       
       user.markModified('documents');
