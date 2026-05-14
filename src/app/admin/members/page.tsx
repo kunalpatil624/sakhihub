@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import DashboardLayout from "@/components/features/dashboard/DashboardLayout";
 import { 
   Users, Filter, Download, Search, CheckCircle, 
-  Clock, MapPin, ShieldCheck, UserCircle, MessageSquare, Phone
+  Clock, MapPin, ShieldCheck, UserCircle, MessageSquare, Phone, X
 } from "lucide-react";
 import axios from "axios";
 
@@ -31,6 +31,18 @@ export default function MemberManagement() {
     }, 500);
     return () => clearTimeout(timer);
   }, [search]);
+
+  const handleStatusUpdate = async (id: string, accountStatus: string) => {
+    try {
+      const res = await axios.patch('/api/admin/members', { id, accountStatus });
+      if (res.data.success) {
+        fetchMembers();
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Failed to update member status");
+    }
+  };
 
   return (
     <DashboardLayout>
@@ -72,7 +84,7 @@ export default function MemberManagement() {
                   <th style={{ padding: '15px 20px', color: '#999', fontSize: '0.8rem', fontWeight: '800', textTransform: 'uppercase' }}>Contact & Location</th>
                   <th style={{ padding: '15px 20px', color: '#999', fontSize: '0.8rem', fontWeight: '800', textTransform: 'uppercase' }}>Assigned Employee</th>
                   <th style={{ padding: '15px 20px', color: '#999', fontSize: '0.8rem', fontWeight: '800', textTransform: 'uppercase' }}>Status & Group</th>
-                  <th style={{ padding: '15px 20px', color: '#999', fontSize: '0.8rem', fontWeight: '800', textTransform: 'uppercase' }}>Payment</th>
+                  <th style={{ padding: '15px 20px', color: '#999', fontSize: '0.8rem', fontWeight: '800', textTransform: 'uppercase' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -116,11 +128,11 @@ export default function MemberManagement() {
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                           <span style={{ 
                             padding: '4px 10px', borderRadius: '6px', fontSize: '0.7rem', fontWeight: '800',
-                            background: member.connectionStatus === 'approved' ? '#ecfdf5' : member.connectionStatus === 'unassigned' ? '#f3f4f6' : '#fffbeb',
-                            color: member.connectionStatus === 'approved' ? '#059669' : member.connectionStatus === 'unassigned' ? '#6b7280' : '#d97706',
+                            background: member.accountStatus === 'active' ? '#ecfdf5' : member.accountStatus === 'pending' ? '#fffbeb' : '#fef2f2',
+                            color: member.accountStatus === 'active' ? '#059669' : member.accountStatus === 'pending' ? '#d97706' : '#dc2626',
                             width: 'fit-content', textTransform: 'uppercase'
                           }}>
-                            {member.connectionStatus || 'unassigned'}
+                            {member.accountStatus || 'pending'}
                           </span>
                           <span style={{ fontSize: '0.85rem', fontWeight: '700', color: member.groupId ? 'var(--secondary)' : '#999' }}>
                             {member.groupId?.groupName || 'No Group'}
@@ -128,20 +140,43 @@ export default function MemberManagement() {
                         </div>
                       </td>
                       <td style={{ padding: '15px 20px' }}>
-                        <div style={{ 
-                          display: 'flex', 
-                          alignItems: 'center', 
-                          gap: '6px', 
-                          fontSize: '0.85rem', 
-                          fontWeight: '800', 
-                          color: member.membershipStatus === 'paid' ? '#059669' : '#d97706',
-                          background: member.membershipStatus === 'paid' ? '#ecfdf5' : '#fffbeb',
-                          padding: '6px 12px',
-                          borderRadius: '8px',
-                          width: 'fit-content'
-                        }}>
-                          {member.membershipStatus === 'paid' ? <CheckCircle size={16} /> : <Clock size={16} />}
-                          {(member.membershipStatus || 'free').toUpperCase()}
+                        <div className="flex gap-2">
+                           {member.accountStatus === 'pending' && (
+                             <button 
+                               onClick={() => handleStatusUpdate(member._id, 'active')}
+                               className="p-2 bg-green-50 text-green-600 rounded-lg hover:bg-green-100 transition-all shadow-sm"
+                               title="Approve Member"
+                             >
+                               <CheckCircle size={18} />
+                             </button>
+                           )}
+                           {member.accountStatus === 'active' && (
+                             <button 
+                               onClick={() => handleStatusUpdate(member._id, 'suspended')}
+                               className="p-2 bg-amber-50 text-amber-600 rounded-lg hover:bg-amber-100 transition-all shadow-sm"
+                               title="Suspend Member"
+                             >
+                               <Clock size={18} />
+                             </button>
+                           )}
+                           {member.accountStatus === 'suspended' && (
+                             <button 
+                               onClick={() => handleStatusUpdate(member._id, 'active')}
+                               className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-all shadow-sm"
+                               title="Restore Member"
+                             >
+                               <ShieldCheck size={18} />
+                             </button>
+                           )}
+                           {member.accountStatus !== 'rejected' && (
+                             <button 
+                               onClick={() => handleStatusUpdate(member._id, 'rejected')}
+                               className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-all shadow-sm"
+                               title="Reject Member"
+                             >
+                               <X size={18} />
+                             </button>
+                           )}
                         </div>
                       </td>
                     </tr>

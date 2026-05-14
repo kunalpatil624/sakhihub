@@ -57,6 +57,43 @@ export async function GET(req: NextRequest) {
     return errorResponse(error.message, 500);
   }
 }
+export async function PATCH(req: NextRequest) {
+  try {
+    const session = await getAuthSession();
+    if (!session || (session as any).role !== 'super_admin') {
+      return errorResponse('Unauthorized', 403);
+    }
+
+    const body = await req.json();
+    const { id, accountStatus, connectionStatus } = body;
+    if (!id) return errorResponse('Member ID required', 400);
+
+    await dbConnect();
+    
+    const updateData: any = {};
+    if (accountStatus) updateData.accountStatus = accountStatus;
+    if (connectionStatus) updateData.connectionStatus = connectionStatus;
+    updateData.updatedAt = new Date();
+
+    const member = await WomenMember.findByIdAndUpdate(id, { $set: updateData }, { new: true });
+    if (!member) return errorResponse('Member not found', 404);
+
+    // Also sync User status if accountStatus is changed
+    if (accountStatus) {
+      let userStatus = 'pending';
+      if (accountStatus === 'active') userStatus = 'active';
+      if (accountStatus === 'suspended') userStatus = 'suspended';
+      if (accountStatus === 'rejected') userStatus = 'rejected';
+      
+      await User.findByIdAndUpdate(member.userId, { status: userStatus });
+    }
+
+    return successResponse(member, 'Member updated successfully');
+  } catch (error: any) {
+    return errorResponse(error.message, 500);
+  }
+}
+
 export async function DELETE(req: NextRequest) {
   try {
     const session = await getAuthSession();

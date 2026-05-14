@@ -21,6 +21,7 @@ export const MEMBER_DASHBOARD_LINKS = [
 
 export const EMPLOYEE_DASHBOARD_LINKS = [
   { name: 'Overview', icon: LayoutDashboard, href: '/employee/dashboard' },
+  { name: 'Member Requests', icon: Heart, href: '/employee/requests' },
   { name: 'My Groups', icon: Layout, href: '/employee/groups' },
   { name: 'Women Members', icon: Users, href: '/employee/members' },
   { name: 'Collections', icon: IndianRupee, href: '/employee/membership' },

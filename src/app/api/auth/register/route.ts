@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import mongoose from 'mongoose';
 import dbConnect from '@/lib/mongodb';
 import User from '@/models/User';
 import WomenMember from '@/models/WomenMember';
@@ -76,8 +77,12 @@ export async function POST(req: NextRequest) {
     } 
     
     if (!parentVendorId && effectiveEmployeeCode) {
+      const isObjectId = mongoose.Types.ObjectId.isValid(effectiveEmployeeCode);
       const employee = await User.findOne({ 
-        $or: [{ employeeId: effectiveEmployeeCode }, { _id: effectiveEmployeeCode }], 
+        $or: [
+          { employeeId: effectiveEmployeeCode }, 
+          ...(isObjectId ? [{ _id: effectiveEmployeeCode as any }] : [])
+        ], 
         role: 'employee' 
       });
       if (employee) {
@@ -90,8 +95,16 @@ export async function POST(req: NextRequest) {
     const hashedPassword = await hashPassword(password);
     const userRole = role || 'member';
 
-    // 2. Status Enforcement
-    const userStatus = userRole === 'super_admin' ? 'active' : 'pending';
+    // 2. Status Enforcement: Members with parent mapping skip pending verification
+    let userStatus = userRole === 'super_admin' ? 'active' : 'pending';
+    let memberAccountStatus = 'pending';
+    let memberConnectionStatus = assignedEmployeeId ? 'pending_request' : 'unassigned';
+
+    if (userRole === 'member' && parentVendorId) {
+      userStatus = 'active'; // Skip verification screen
+      memberAccountStatus = 'active';
+      memberConnectionStatus = 'approved';
+    }
 
     // OTP logic
     let otp = undefined;
@@ -182,24 +195,24 @@ export async function POST(req: NextRequest) {
         occupation,
         interests,
         createdBy: newUser._id, // Self-registered
-        accountStatus: 'active',
-        connectionStatus: assignedEmployeeId ? 'pending_request' : 'unassigned',
+        accountStatus: memberAccountStatus,
+        connectionStatus: memberConnectionStatus,
         membershipStatus: 'free'
       });
 
-      // If a member selected an employee, create a connection request
-      if (assignedEmployeeId) {
+      // If a member selected an employee AND not already approved (referral), create a connection request
+      if (parentVendorId && assignedEmployeeId && memberConnectionStatus !== 'approved') {
         await MemberRequest.create({
           memberId: newUser._id,
-          employeeId: assignedEmployeeId,
-          pincode: pincode,
+          employeeId: parentVendorId,
+          pincode: pincode || newUser.pincode,
           requestedBy: 'member',
           status: 'pending'
         });
         
         // Notify employee
         const { notifyMemberRequest } = await import('@/lib/notifications');
-        notifyMemberRequest(assignedEmployeeId, newUser._id);
+        notifyMemberRequest(parentVendorId.toString(), newUser._id.toString());
       }
     }
 
