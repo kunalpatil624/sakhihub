@@ -67,6 +67,19 @@ export async function GET() {
       await setAuthCookie(newToken);
     }
 
+    if (user.role === 'member' && user.assignmentStatus !== 'completed') {
+       const MemberRequest = (await import('@/models/MemberRequest')).default;
+       const requests = await MemberRequest.find({ 
+         memberId: user._id, 
+         status: 'pending' 
+       }).populate('employeeId', 'fullName mobile employeeId');
+       
+       return successResponse({
+         ...user.toObject(),
+         pendingRequests: requests
+       });
+    }
+
     return successResponse(user);
   } catch (error) {
     console.error('Auth Me Sync Error:', error);

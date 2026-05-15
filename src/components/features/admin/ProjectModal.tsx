@@ -1,9 +1,9 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { 
-  X, Plus, Trash2, Upload, 
-  Image as ImageIcon, Sparkles, 
+import {
+  X, Plus, Trash2, Upload,
+  Image as ImageIcon, Sparkles,
   Type, AlignLeft, Flag, List,
   Monitor, Layout, MousePointer2,
   Eye, EyeOff
@@ -131,9 +131,9 @@ export default function ProjectModal({ isOpen, onClose, onSuccess, project }: Pr
   const addHeroHighlight = () => {
     setFormData({
       ...formData,
-      heroBanner: { 
-        ...formData.heroBanner, 
-        highlights: [...formData.heroBanner.highlights, ''] 
+      heroBanner: {
+        ...formData.heroBanner,
+        highlights: [...formData.heroBanner.highlights, '']
       }
     });
   };
@@ -169,21 +169,21 @@ export default function ProjectModal({ isOpen, onClose, onSuccess, project }: Pr
 
   return (
     <div className="fixed inset-0 z-[110] flex items-center justify-center p-0 md:p-6 overflow-hidden">
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
         onClick={onClose}
-        className="absolute inset-0 bg-secondary/60 backdrop-blur-md" 
+        className="absolute inset-0 bg-secondary/60 backdrop-blur-md"
       />
-      <motion.div 
+      <motion.div
         initial={{ scale: 0.9, y: 20, opacity: 0 }} animate={{ scale: 1, y: 0, opacity: 1 }} exit={{ scale: 0.9, y: 20, opacity: 0 }}
         className="relative bg-white w-full max-w-4xl md:rounded-[40px] rounded-t-[32px] shadow-2xl flex flex-col h-full md:h-auto md:max-h-[90vh] overflow-hidden"
       >
         <div className="bg-gradient-to-r from-primary to-secondary p-6 md:p-8 text-white relative shrink-0">
-          <button 
+          <button
             onClick={onClose}
             className="absolute right-6 top-6 w-10 h-10 bg-white/10 rounded-full flex items-center justify-center hover:bg-white/20 transition-all"
           ><X size={18} /></button>
-          
+
           <div className="flex gap-4 items-center">
             <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center shadow-inner">
               <Sparkles size={24} />
@@ -210,11 +210,11 @@ export default function ProjectModal({ isOpen, onClose, onSuccess, project }: Pr
                   <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 flex items-center gap-2">
                     <Type size={12} /> Project Title
                   </label>
-                  <input 
+                  <input
                     required
-                    type="text" 
+                    type="text"
                     value={formData.title}
-                    onChange={(e) => setFormData({...formData, title: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                     placeholder="Enter project title"
                     className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-2xl font-bold focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all"
                   />
@@ -224,11 +224,11 @@ export default function ProjectModal({ isOpen, onClose, onSuccess, project }: Pr
                   <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 flex items-center gap-2">
                     <Flag size={12} /> One Line Tagline
                   </label>
-                  <input 
+                  <input
                     required
-                    type="text" 
+                    type="text"
                     value={formData.tagline}
-                    onChange={(e) => setFormData({...formData, tagline: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, tagline: e.target.value })}
                     placeholder="Short catching tagline"
                     className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-2xl font-bold focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all"
                   />
@@ -239,11 +239,11 @@ export default function ProjectModal({ isOpen, onClose, onSuccess, project }: Pr
                 <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 flex items-center gap-2">
                   <AlignLeft size={12} /> Short Description
                 </label>
-                <textarea 
+                <textarea
                   required
                   rows={5}
                   value={formData.shortDescription}
-                  onChange={(e) => setFormData({...formData, shortDescription: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, shortDescription: e.target.value })}
                   placeholder="Describe the project purpose..."
                   className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-2xl font-bold focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all resize-none"
                 />
@@ -260,15 +260,15 @@ export default function ProjectModal({ isOpen, onClose, onSuccess, project }: Pr
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {formData.highlights.map((h, i) => (
                   <div key={i} className="flex gap-2">
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       value={h}
                       onChange={(e) => handleHighlightChange(i, e.target.value)}
                       placeholder={`Highlight ${i + 1}`}
                       className="flex-1 px-5 py-3 bg-gray-50 border border-gray-100 rounded-xl font-bold focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all"
                     />
-                    <button 
-                      type="button" 
+                    <button
+                      type="button"
                       onClick={() => removeHighlight(i)}
                       className="p-3 text-red-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
                     >
@@ -277,8 +277,8 @@ export default function ProjectModal({ isOpen, onClose, onSuccess, project }: Pr
                   </div>
                 ))}
               </div>
-              <button 
-                type="button" 
+              <button
+                type="button"
                 onClick={addHighlight}
                 className="flex items-center gap-2 text-xs font-black text-primary uppercase tracking-widest hover:pl-2 transition-all"
               >
@@ -300,11 +300,11 @@ export default function ProjectModal({ isOpen, onClose, onSuccess, project }: Pr
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="space-y-2">
                   <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Main Heading</label>
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     value={formData.heroBanner.heading}
                     onChange={(e) => setFormData({
-                      ...formData, 
+                      ...formData,
                       heroBanner: { ...formData.heroBanner, heading: e.target.value }
                     })}
                     placeholder="Large catchy heading"
@@ -313,11 +313,11 @@ export default function ProjectModal({ isOpen, onClose, onSuccess, project }: Pr
                 </div>
                 <div className="space-y-2">
                   <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Sub Heading</label>
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     value={formData.heroBanner.subHeading}
                     onChange={(e) => setFormData({
-                      ...formData, 
+                      ...formData,
                       heroBanner: { ...formData.heroBanner, subHeading: e.target.value }
                     })}
                     placeholder="Detail sub-heading"
@@ -331,15 +331,15 @@ export default function ProjectModal({ isOpen, onClose, onSuccess, project }: Pr
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {formData.heroBanner.highlights.map((h, i) => (
                     <div key={i} className="flex gap-2">
-                      <input 
-                        type="text" 
+                      <input
+                        type="text"
                         value={h}
                         onChange={(e) => handleHeroHighlightChange(i, e.target.value)}
                         placeholder={`Banner Highlight ${i + 1}`}
                         className="flex-1 px-5 py-3 bg-white border border-gray-100 rounded-xl font-bold focus:outline-none shadow-sm"
                       />
-                      <button 
-                        type="button" 
+                      <button
+                        type="button"
                         onClick={() => removeHeroHighlight(i)}
                         className="p-3 text-red-400 hover:text-red-500 rounded-xl transition-all"
                       >
@@ -348,8 +348,8 @@ export default function ProjectModal({ isOpen, onClose, onSuccess, project }: Pr
                     </div>
                   ))}
                 </div>
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   onClick={addHeroHighlight}
                   className="flex items-center gap-2 text-[10px] font-black text-secondary uppercase tracking-widest hover:pl-1 transition-all"
                 >
@@ -362,11 +362,11 @@ export default function ProjectModal({ isOpen, onClose, onSuccess, project }: Pr
                   <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 flex items-center gap-2">
                     <MousePointer2 size={12} /> CTA Button 1
                   </label>
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     value={formData.heroBanner.ctaText1}
                     onChange={(e) => setFormData({
-                      ...formData, 
+                      ...formData,
                       heroBanner: { ...formData.heroBanner, ctaText1: e.target.value }
                     })}
                     placeholder="Join Program"
@@ -377,11 +377,11 @@ export default function ProjectModal({ isOpen, onClose, onSuccess, project }: Pr
                   <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 flex items-center gap-2">
                     <MousePointer2 size={12} /> CTA Button 2
                   </label>
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     value={formData.heroBanner.ctaText2}
                     onChange={(e) => setFormData({
-                      ...formData, 
+                      ...formData,
                       heroBanner: { ...formData.heroBanner, ctaText2: e.target.value }
                     })}
                     placeholder="Become Member"
@@ -464,13 +464,13 @@ export default function ProjectModal({ isOpen, onClose, onSuccess, project }: Pr
                   <h5 className="text-xs font-black text-blue-600 uppercase tracking-widest mb-2">Display Optimization</h5>
                   <p className="text-xs text-blue-500 font-medium leading-relaxed">Image 1 is used for the listing card. Image 2 is used as the high-impact hero background in the project detail page.</p>
                 </div>
-                
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Status</label>
-                    <select 
+                    <select
                       value={formData.status}
-                      onChange={(e) => setFormData({...formData, status: e.target.value as any})}
+                      onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
                       className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-2xl font-bold focus:outline-none appearance-none"
                     >
                       <option value="active">Active</option>
@@ -484,9 +484,9 @@ export default function ProjectModal({ isOpen, onClose, onSuccess, project }: Pr
                       <span className="flex-1 text-xs font-black text-secondary uppercase tracking-widest">
                         {formData.isVisible ? 'Public' : 'Hidden'}
                       </span>
-                      <button 
+                      <button
                         type="button"
-                        onClick={() => setFormData({...formData, isVisible: !formData.isVisible})}
+                        onClick={() => setFormData({ ...formData, isVisible: !formData.isVisible })}
                         className={`w-12 h-6 rounded-full relative transition-all ${formData.isVisible ? 'bg-primary' : 'bg-gray-300'}`}
                       >
                         <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${formData.isVisible ? 'right-1' : 'left-1'}`} />
@@ -498,12 +498,12 @@ export default function ProjectModal({ isOpen, onClose, onSuccess, project }: Pr
             </div>
 
             <div className="flex flex-col md:flex-row gap-4 pt-10 border-t border-gray-100">
-              <button 
+              <button
                 type="button"
                 onClick={onClose}
                 className="flex-1 py-5 rounded-2xl border-2 border-gray-200 text-gray-500 font-black text-xs uppercase tracking-[0.2em] hover:bg-gray-100 transition-all order-2 md:order-1"
               >Cancel</button>
-              <button 
+              <button
                 type="submit"
                 disabled={loading}
                 className="flex-[2] py-5 bg-gradient-to-r from-primary to-secondary text-white rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3 disabled:opacity-50 disabled:hover:scale-100 order-1 md:order-2"

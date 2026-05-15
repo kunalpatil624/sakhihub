@@ -12,19 +12,23 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import axios from "axios";
+import { motion } from "framer-motion";
 
 export default function PendingAssignmentPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<any>(null);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   const checkStatus = async () => {
     try {
       const res = await axios.get('/api/auth/me');
       if (res.data.success) {
-        const user = res.data.data;
+        const userData = res.data.data;
+        setUser(userData);
         
         // If assignment is now completed, redirect to the appropriate dashboard
-        if (user.assignmentStatus === 'completed') {
+        if (userData.assignmentStatus === 'completed') {
           const dashMap: any = {
             super_admin: '/admin/dashboard',
             vendor: '/vendor/dashboard',
@@ -32,7 +36,7 @@ export default function PendingAssignmentPage() {
             employee: '/employee/dashboard',
             member: '/member/dashboard'
           };
-          router.push(dashMap[user.role] || '/');
+          router.push(dashMap[userData.role] || '/');
           return;
         }
       }
@@ -57,6 +61,21 @@ export default function PendingAssignmentPage() {
       router.push('/login');
     } catch (error) {
       console.error('Logout failed:', error);
+    }
+  };
+
+  const handleRequestAction = async (requestId: string, status: 'approved' | 'rejected') => {
+    setActionLoading(requestId);
+    try {
+      const res = await axios.patch('/api/member/request', { id: requestId, status });
+      if (res.data.success) {
+        checkStatus(); // Re-fetch user data to check if assignment is completed
+      }
+    } catch (error) {
+      console.error('Action failed:', error);
+      alert('Failed to process request');
+    } finally {
+      setActionLoading(null);
     }
   };
 
@@ -119,6 +138,50 @@ export default function PendingAssignmentPage() {
             <p className="text-sm font-bold text-secondary">Dashboard Access</p>
           </div>
         </div>
+
+        {/* Pending Requests Section */}
+        {user?.pendingRequests && user.pendingRequests.length > 0 && (
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-16 text-left"
+          >
+            <h3 className="text-xl font-black text-secondary mb-6 px-4">Incoming Connections</h3>
+            <div className="flex flex-col gap-4">
+              {user.pendingRequests.map((req: any) => (
+                <div key={req._id} className="bg-white p-6 md:p-8 rounded-[40px] border border-primary/20 shadow-xl shadow-primary/5 flex flex-col md:flex-row justify-between items-center gap-6">
+                  <div className="flex items-center gap-5 w-full md:w-auto">
+                    <div className="w-16 h-16 bg-gradient-to-br from-primary to-secondary text-white rounded-2xl flex items-center justify-center shadow-lg shadow-primary/20">
+                      <ShieldCheck size={32} />
+                    </div>
+                    <div>
+                      <h4 className="text-lg font-black text-secondary leading-tight">{req.employeeId?.fullName}</h4>
+                      <p className="text-[10px] text-primary font-black uppercase tracking-widest mt-1">Field Hero (Employee)</p>
+                      <p className="text-xs text-gray-400 font-bold mt-2">ID: {req.employeeId?.employeeId}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex gap-4 w-full md:w-auto">
+                    <button 
+                      onClick={() => handleRequestAction(req._id, 'rejected')}
+                      disabled={!!actionLoading}
+                      className="flex-1 md:flex-none px-8 py-4 border-2 border-red-50 text-red-500 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-red-50 transition-all"
+                    >
+                      Reject
+                    </button>
+                    <button 
+                      onClick={() => handleRequestAction(req._id, 'approved')}
+                      disabled={!!actionLoading}
+                      className="flex-[2] md:flex-none px-10 py-4 bg-primary text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-primary/20 hover:scale-105 active:scale-95 transition-all"
+                    >
+                      {actionLoading === req._id ? 'Processing...' : 'Accept & Finish'}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </motion.div>
+        )}
 
         {/* Footer Actions */}
         <div className="flex flex-col md:flex-row items-center justify-center gap-6">

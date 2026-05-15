@@ -87,7 +87,7 @@ export async function PATCH(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { id, accountStatus, connectionStatus } = body;
+    const { id, accountStatus, connectionStatus, assignedEmployeeId } = body;
     if (!id) return errorResponse('Member ID required', 400);
 
     await dbConnect();
@@ -95,10 +95,33 @@ export async function PATCH(req: NextRequest) {
     const updateData: any = {};
     if (accountStatus) updateData.accountStatus = accountStatus;
     if (connectionStatus) updateData.connectionStatus = connectionStatus;
+    
+    if (assignedEmployeeId) {
+      updateData.assignedEmployeeId = assignedEmployeeId;
+      updateData.connectionStatus = 'approved';
+    }
+    
     updateData.updatedAt = new Date();
 
     const member = await WomenMember.findByIdAndUpdate(id, { $set: updateData }, { new: true });
     if (!member) return errorResponse('Member not found', 404);
+
+    // Finalize hierarchy if employee is assigned
+    if (assignedEmployeeId) {
+      const employee = await User.findById(assignedEmployeeId);
+      if (employee) {
+        await User.findByIdAndUpdate(member.userId, {
+          parentVendorId: assignedEmployeeId,
+          parentEmployeeCode: employee.employeeId,
+          parentVendorCode: employee.vendorCode,
+          parentSubVendorCode: employee.subVendorCode,
+          assignmentStatus: 'completed',
+          dashboardAccess: true,
+          onboardingCompleted: true,
+          status: 'active'
+        });
+      }
+    }
 
     // Also sync User status if accountStatus is changed
     if (accountStatus) {

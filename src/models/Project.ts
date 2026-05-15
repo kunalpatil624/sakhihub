@@ -44,7 +44,7 @@ const ProjectSchema: Schema = new Schema(
 );
 
 // Slugify title before saving
-ProjectSchema.pre('validate', function(this: any) {
+ProjectSchema.pre('validate', function (this: any) {
   if (this.title && !this.slug) {
     this.slug = this.title
       .toLowerCase()

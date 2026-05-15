@@ -7,7 +7,7 @@ import mongoose from 'mongoose';
 export async function GET(req: NextRequest) {
   try {
     await dbConnect();
-    
+
     if (process.env.NODE_ENV === 'development') {
       const mongoose = require('mongoose');
       delete mongoose.models.Project;
@@ -24,19 +24,19 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     await dbConnect();
-    
+
     // Force clear model cache in development to ensure schema changes apply
     if (process.env.NODE_ENV === 'development') {
       const mongoose = require('mongoose');
       delete mongoose.models.Project;
     }
-    
+
     // Re-import Project to get the fresh model
     const Project = require('@/models/Project').default;
 
     const body = await req.json();
     console.log("🚀 Project Creation Triggered (Fresh Model):", body.title);
-    
+
     // Filter empty highlights
     if (body.highlights) {
       body.highlights = body.highlights.filter((h: string) => h.trim() !== '');

@@ -9,7 +9,7 @@ export async function GET(
 ) {
   try {
     await dbConnect();
-    
+
     if (process.env.NODE_ENV === 'development') {
       const mongoose = require('mongoose');
       delete mongoose.models.Project;
@@ -61,7 +61,7 @@ export async function PUT(
 
     const project = await Project.findByIdAndUpdate(id, body, { returnDocument: 'after', runValidators: true });
     if (!project) return errorResponse('Project not found', 404);
-    
+
     return successResponse(project, 'Project updated successfully');
   } catch (err: any) {
     console.error("Project Update Error:", err);
