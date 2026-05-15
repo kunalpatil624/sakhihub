@@ -17,23 +17,23 @@ export async function GET(req: NextRequest) {
     // 1. Fetch only ACTIVE/APPROVED operational records
     const operationalStatuses = ['active', 'approved'];
 
-    const vendors = await User.find({ 
-      role: 'vendor', 
-      status: { $in: operationalStatuses } 
+    const vendors = await User.find({
+      role: 'vendor',
+      status: { $in: operationalStatuses }
     }).select('fullName vendorCode role mobile status district block');
 
-    const subVendors = await User.find({ 
-      role: 'sub_vendor', 
-      status: { $in: operationalStatuses } 
+    const subVendors = await User.find({
+      role: 'sub_vendor',
+      status: { $in: operationalStatuses }
     }).select('fullName subVendorCode role mobile status district block parentVendorId');
 
-    const employees = await User.find({ 
-      role: 'employee', 
-      status: { $in: operationalStatuses } 
+    const employees = await User.find({
+      role: 'employee',
+      status: { $in: operationalStatuses }
     }).select('fullName employeeId role mobile status district block parentVendorId');
 
-    const members = await WomenMember.find({ 
-      accountStatus: 'active' 
+    const members = await WomenMember.find({
+      accountStatus: 'active'
     }).select('name mobile village status membershipStatus assignedEmployeeId subVendorCode vendorCode');
 
     // 2. Build the Root
@@ -45,9 +45,9 @@ export async function GET(req: NextRequest) {
       children: []
     };
 
-    // 3. Build Node Map for O(1) lookup
+    // 3. Build Node Map for O(1) lookup--
     const nodeMap: Record<string, any> = { 'root': root };
-    
+
     // Helper maps for code-based lookups (for members who might have loose code references)
     const subVendorCodeMap: Record<string, string> = {};
     const vendorCodeMap: Record<string, string> = {};
