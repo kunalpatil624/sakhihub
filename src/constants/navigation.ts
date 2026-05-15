@@ -32,6 +32,7 @@ export const EMPLOYEE_DASHBOARD_LINKS = [
 
 export const ADMIN_DASHBOARD_LINKS = [
   { name: 'Overview', icon: LayoutDashboard, href: '/admin/dashboard' },
+  { name: 'Network Tree', icon: MapPin, href: '/admin/network' },
   { name: 'Vendors', icon: ShieldCheck, href: '/admin/vendors' },
   { name: 'Sub-Vendors', icon: Layout, href: '/admin/sub-vendors' },
   { name: 'Applications', icon: ClipboardList, href: '/admin/employees' },
@@ -48,6 +49,7 @@ export const ADMIN_DASHBOARD_LINKS = [
 
 export const VENDOR_DASHBOARD_LINKS = [
   { name: 'Overview', icon: LayoutDashboard, href: '/vendor/dashboard' },
+  { name: 'Network Mapping', icon: MapPin, href: '/vendor/dashboard/network' },
   { name: 'My Campaigns', icon: Target, href: '/vendor/dashboard/campaigns' },
   { name: 'Sub-Vendors', icon: Layout, href: '/vendor/dashboard/sub-vendors' },
   { name: 'Employees', icon: ClipboardList, href: '/vendor/dashboard/employees' },

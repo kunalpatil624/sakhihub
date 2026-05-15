@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect } from "react";
 import DashboardLayout from "@/components/features/dashboard/DashboardLayout";
-import { Sparkles, Search, Plus, MapPin, Phone, Mail, ExternalLink, ShieldCheck } from "lucide-react";
+import { Sparkles, Search, Plus, MapPin, Phone, Mail, ExternalLink, ShieldCheck, Map } from "lucide-react";
+import Link from "next/link";
 import axios from "axios";
 import { motion, AnimatePresence } from "framer-motion";
 import RegisterPartnerModal from "@/components/features/dashboard/RegisterPartnerModal";
@@ -48,12 +49,20 @@ export default function VendorSubVendors() {
             <h1 className="text-3xl md:text-4xl font-black text-secondary">My Sub-Vendors</h1>
             <p className="text-gray-400 font-bold mt-1 uppercase tracking-widest text-xs">Manage your secondary partner network and regional leads</p>
           </div>
-          <button 
-            onClick={() => setShowRegisterModal(true)}
-            className="btn-primary py-4 px-8 shadow-xl shadow-primary/20"
-          >
-            <Plus size={20} /> Register New Sub-Vendor
-          </button>
+          <div className="flex gap-4">
+            <Link 
+              href="/vendor/dashboard/network"
+              className="flex items-center gap-2 px-6 py-4 bg-secondary/5 text-secondary rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-secondary hover:text-white transition-all border border-secondary/10"
+            >
+              <Map size={16} /> View Network Tree
+            </Link>
+            <button 
+              onClick={() => setShowRegisterModal(true)}
+              className="btn-primary py-4 px-8 shadow-xl shadow-primary/20"
+            >
+              <Plus size={20} /> Register New Sub-Vendor
+            </button>
+          </div>
         </header>
 
         <div className="bg-white p-8 rounded-[40px] border border-gray-100 shadow-soft">
@@ -112,9 +121,13 @@ export default function VendorSubVendors() {
                         </span>
                       </td>
                       <td className="p-5">
-                        <button className="p-2.5 bg-gray-50 text-gray-400 rounded-xl hover:bg-secondary hover:text-white transition-all shadow-sm">
+                        <Link 
+                          href="/vendor/dashboard/network"
+                          className="p-2.5 bg-gray-50 text-gray-400 rounded-xl hover:bg-secondary hover:text-white transition-all shadow-sm flex items-center justify-center w-fit"
+                          title="View in Network Tree"
+                        >
                           <ExternalLink size={16} />
-                        </button>
+                        </Link>
                       </td>
                     </tr>
                   ))
