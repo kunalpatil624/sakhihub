@@ -55,6 +55,7 @@ const Navbar = () => {
         { name: 'Community', href: '/programs/community', icon: Users },
       ]
     },
+    { name: t('Projects') || 'Projects', href: '/projects' },
     { name: t('campaign'), href: '/campaign' },
     { name: t('Products'), href: '/products' },
     { name: t('contact'), href: '/contact' },
