@@ -15,7 +15,7 @@ const products = [
     tag: "Most Popular",
     details: "Perfect for daily comfort and high activity days.",
     features: ["Soft Cottony Surface", "Advanced Absorbency", "Anti-Leak Side Walls", "Skin-Safe & Breathable"],
-    image: "https://images.unsplash.com/photo-1583947581924-860bda6a26df?q=80&w=800"
+    image: "/images/product.png"
   },
   {
     name: "Sakhi Care Pads - Family Pack",
@@ -25,7 +25,7 @@ const products = [
     tag: "Best Value",
     details: "All-day and overnight protection for the whole family.",
     features: ["Extra Large Coverage", "Dual-Layer Protection", "Zero Leakage Tech", "Night-Use Optimized", "Eco-Friendly Design"],
-    image: "https://images.unsplash.com/photo-1550581190-9c1c48d21d6c?q=80&w=800"
+    image: "/images/Hygiene-Education.jpeg"
   }
 ];
 
@@ -43,9 +43,9 @@ export default function ProductsPage() {
         title="Premium Products" 
         subtitle="Sakhi Care: High-quality hygiene solutions at accessible prices."
         images={[
-          "https://images.unsplash.com/photo-1556228578-0d85b1a4d571?q=80&w=1500",
-          "https://images.unsplash.com/photo-1583947581924-860bda6a26df?q=80&w=1500",
-          "https://images.unsplash.com/photo-1550581190-9c1c48d21d6c?q=80&w=1500"
+          "/images/campaign_sanitary.png",
+          "/images/product.png",
+          "/images/Hygiene-Education.jpeg"
         ]}
       />
       
