@@ -22,6 +22,7 @@ export default function ProjectModal({ isOpen, onClose, onSuccess, project }: Pr
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [previewSecondaryImage, setPreviewSecondaryImage] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     title: '',
@@ -36,6 +37,7 @@ export default function ProjectModal({ isOpen, onClose, onSuccess, project }: Pr
       ctaText2: 'Become Member',
     },
     posterImage: '',
+    secondaryImage: '',
     status: 'active',
     isVisible: true,
   });
@@ -55,10 +57,12 @@ export default function ProjectModal({ isOpen, onClose, onSuccess, project }: Pr
           ctaText2: project.heroBanner?.ctaText2 || 'Become Member',
         },
         posterImage: project.posterImage || '',
+        secondaryImage: project.secondaryImage || '',
         status: project.status || 'active',
         isVisible: project.isVisible ?? true,
       });
       setPreviewImage(project.posterImage || null);
+      setPreviewSecondaryImage(project.secondaryImage || null);
     } else {
       setFormData({
         title: '',
@@ -73,21 +77,28 @@ export default function ProjectModal({ isOpen, onClose, onSuccess, project }: Pr
           ctaText2: 'Become Member',
         },
         posterImage: '',
+        secondaryImage: '',
         status: 'active',
         isVisible: true,
       });
       setPreviewImage(null);
+      setPreviewSecondaryImage(null);
     }
   }, [project, isOpen]);
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>, type: 'poster' | 'secondary') => {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
         const base64 = reader.result as string;
-        setPreviewImage(base64);
-        setFormData({ ...formData, posterImage: base64 });
+        if (type === 'poster') {
+          setPreviewImage(base64);
+          setFormData({ ...formData, posterImage: base64 });
+        } else {
+          setPreviewSecondaryImage(base64);
+          setFormData({ ...formData, secondaryImage: base64 });
+        }
       };
       reader.readAsDataURL(file);
     }
@@ -380,69 +391,106 @@ export default function ProjectModal({ isOpen, onClose, onSuccess, project }: Pr
               </div>
             </div>
 
-            {/* Poster Upload */}
-            <div className="space-y-4">
-              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 flex items-center gap-2">
-                <ImageIcon size={12} /> Project Poster Image
-              </label>
-              <div className="flex flex-col md:flex-row gap-8 items-start">
-                <div className="relative group w-full md:w-64 aspect-[4/5] bg-gray-50 border-2 border-dashed border-gray-200 rounded-[32px] overflow-hidden flex items-center justify-center transition-all hover:border-primary/50">
-                  {previewImage ? (
-                    <>
-                      <img src={previewImage} alt="Preview" className="w-full h-full object-cover" />
-                      <div className="absolute inset-0 bg-secondary/40 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center">
-                        <label className="p-4 bg-white rounded-2xl text-secondary font-black text-xs cursor-pointer shadow-xl active:scale-95 transition-all">
-                          Change Image
-                          <input type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
-                        </label>
-                      </div>
-                    </>
-                  ) : (
-                    <label className="flex flex-col items-center gap-3 cursor-pointer p-10 text-center">
-                      <div className="w-12 h-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center">
-                        <Upload size={24} />
-                      </div>
-                      <div>
-                        <p className="text-xs font-black text-secondary uppercase tracking-widest">Upload Poster</p>
-                        <p className="text-[9px] text-gray-400 font-bold mt-1">PNG, JPG or WEBP (Max 2MB)</p>
-                      </div>
-                      <input type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
-                    </label>
-                  )}
-                </div>
-                <div className="flex-1 space-y-6">
-                  <div className="p-6 bg-blue-50/50 rounded-[24px] border border-blue-100">
-                    <h5 className="text-xs font-black text-blue-600 uppercase tracking-widest mb-2">Display Optimization</h5>
-                    <p className="text-xs text-blue-500 font-medium leading-relaxed">For best results, use a portrait orientation image (4:5 or 9:16). This image will be used as the hero background on the project detail page and the card on the listing page.</p>
+            <hr className="border-gray-50" />
+
+            {/* Image Uploads */}
+            <div className="space-y-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                {/* Poster Upload (Image 1) */}
+                <div className="space-y-4">
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 flex items-center gap-2">
+                    <ImageIcon size={12} /> 1. Project Poster (Grid Card)
+                  </label>
+                  <div className="relative group aspect-[4/3] bg-gray-50 border-2 border-dashed border-gray-200 rounded-[32px] overflow-hidden flex items-center justify-center transition-all hover:border-primary/50">
+                    {previewImage ? (
+                      <>
+                        <img src={previewImage} alt="Preview" className="w-full h-full object-cover" />
+                        <div className="absolute inset-0 bg-secondary/40 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center">
+                          <label className="p-4 bg-white rounded-2xl text-secondary font-black text-xs cursor-pointer shadow-xl active:scale-95 transition-all">
+                            Change Image
+                            <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageChange(e, 'poster')} />
+                          </label>
+                        </div>
+                      </>
+                    ) : (
+                      <label className="flex flex-col items-center gap-3 cursor-pointer p-10 text-center">
+                        <div className="w-12 h-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center">
+                          <Upload size={24} />
+                        </div>
+                        <div>
+                          <p className="text-xs font-black text-secondary uppercase tracking-widest">Upload Poster</p>
+                          <p className="text-[9px] text-gray-400 font-bold mt-1">Shown in the main grid</p>
+                        </div>
+                        <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageChange(e, 'poster')} />
+                      </label>
+                    )}
                   </div>
-                  
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Status</label>
-                      <select 
-                        value={formData.status}
-                        onChange={(e) => setFormData({...formData, status: e.target.value as any})}
-                        className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-2xl font-bold focus:outline-none appearance-none"
+                </div>
+
+                {/* Secondary Image Upload (Image 2) */}
+                <div className="space-y-4">
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 flex items-center gap-2">
+                    <ImageIcon size={12} /> 2. Detail Page Hero Image
+                  </label>
+                  <div className="relative group aspect-[4/3] bg-gray-50 border-2 border-dashed border-gray-200 rounded-[32px] overflow-hidden flex items-center justify-center transition-all hover:border-primary/50">
+                    {previewSecondaryImage ? (
+                      <>
+                        <img src={previewSecondaryImage} alt="Preview" className="w-full h-full object-cover" />
+                        <div className="absolute inset-0 bg-secondary/40 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center">
+                          <label className="p-4 bg-white rounded-2xl text-secondary font-black text-xs cursor-pointer shadow-xl active:scale-95 transition-all">
+                            Change Image
+                            <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageChange(e, 'secondary')} />
+                          </label>
+                        </div>
+                      </>
+                    ) : (
+                      <label className="flex flex-col items-center gap-3 cursor-pointer p-10 text-center">
+                        <div className="w-12 h-12 rounded-2xl bg-secondary/10 text-secondary flex items-center justify-center">
+                          <Upload size={24} />
+                        </div>
+                        <div>
+                          <p className="text-xs font-black text-secondary uppercase tracking-widest">Upload Detail Image</p>
+                          <p className="text-[9px] text-gray-400 font-bold mt-1">Shown in the project hero section</p>
+                        </div>
+                        <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageChange(e, 'secondary')} />
+                      </label>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 items-end">
+                <div className="p-6 bg-blue-50/50 rounded-[24px] border border-blue-100">
+                  <h5 className="text-xs font-black text-blue-600 uppercase tracking-widest mb-2">Display Optimization</h5>
+                  <p className="text-xs text-blue-500 font-medium leading-relaxed">Image 1 is used for the listing card. Image 2 is used as the high-impact hero background in the project detail page.</p>
+                </div>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Status</label>
+                    <select 
+                      value={formData.status}
+                      onChange={(e) => setFormData({...formData, status: e.target.value as any})}
+                      className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-2xl font-bold focus:outline-none appearance-none"
+                    >
+                      <option value="active">Active</option>
+                      <option value="inactive">Inactive</option>
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Public Visibility</label>
+                    <div className="flex items-center gap-4 bg-gray-50 border border-gray-100 rounded-2xl px-5 py-3">
+                      {formData.isVisible ? <Eye className="text-primary" size={18} /> : <EyeOff className="text-gray-400" size={18} />}
+                      <span className="flex-1 text-xs font-black text-secondary uppercase tracking-widest">
+                        {formData.isVisible ? 'Public' : 'Hidden'}
+                      </span>
+                      <button 
+                        type="button"
+                        onClick={() => setFormData({...formData, isVisible: !formData.isVisible})}
+                        className={`w-12 h-6 rounded-full relative transition-all ${formData.isVisible ? 'bg-primary' : 'bg-gray-300'}`}
                       >
-                        <option value="active">Active</option>
-                        <option value="inactive">Inactive</option>
-                      </select>
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Public Visibility</label>
-                      <div className="flex items-center gap-4 bg-gray-50 border border-gray-100 rounded-2xl px-5 py-3">
-                        {formData.isVisible ? <Eye className="text-primary" size={18} /> : <EyeOff className="text-gray-400" size={18} />}
-                        <span className="flex-1 text-xs font-black text-secondary uppercase tracking-widest">
-                          {formData.isVisible ? 'Visible on Website' : 'Hidden from Public'}
-                        </span>
-                        <button 
-                          type="button"
-                          onClick={() => setFormData({...formData, isVisible: !formData.isVisible})}
-                          className={`w-12 h-6 rounded-full relative transition-all ${formData.isVisible ? 'bg-primary' : 'bg-gray-300'}`}
-                        >
-                          <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${formData.isVisible ? 'right-1' : 'left-1'}`} />
-                        </button>
-                      </div>
+                        <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${formData.isVisible ? 'right-1' : 'left-1'}`} />
+                      </button>
                     </div>
                   </div>
                 </div>

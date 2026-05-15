@@ -136,8 +136,8 @@ export default function ProjectDetailPage() {
               className="hidden lg:block relative"
             >
               <div className="relative aspect-[4/5] rounded-[60px] overflow-hidden shadow-[0_50px_100px_-20px_rgba(0,0,0,0.5)] border-8 border-white/5 group">
-                {project.posterImage ? (
-                  <img src={project.posterImage} alt={project.title} className="w-full h-full object-cover" />
+                {(project.secondaryImage || project.posterImage) ? (
+                  <img src={project.secondaryImage || project.posterImage} alt={project.title} className="w-full h-full object-cover" />
                 ) : (
                   <div className="w-full h-full bg-primary/20 flex items-center justify-center text-white">
                     <Sparkles size={100} />

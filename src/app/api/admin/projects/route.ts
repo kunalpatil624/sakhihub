@@ -7,7 +7,13 @@ import mongoose from 'mongoose';
 export async function GET(req: NextRequest) {
   try {
     await dbConnect();
+    
+    if (process.env.NODE_ENV === 'development') {
+      const mongoose = require('mongoose');
+      delete mongoose.models.Project;
+    }
     const Project = require('@/models/Project').default;
+
     const projects = await Project.find().sort({ createdAt: -1 });
     return successResponse(projects);
   } catch (err: any) {
@@ -39,10 +45,14 @@ export async function POST(req: NextRequest) {
       body.heroBanner.highlights = body.heroBanner.highlights.filter((h: string) => h.trim() !== '');
     }
 
-    // Handle image upload if provided as base64
+    // Handle image uploads if provided as base64
     if (body.posterImage && body.posterImage.startsWith('data:')) {
       const uploadRes = await uploadToCloudinary(body.posterImage, 'projects');
       body.posterImage = uploadRes.secure_url;
+    }
+    if (body.secondaryImage && body.secondaryImage.startsWith('data:')) {
+      const uploadRes = await uploadToCloudinary(body.secondaryImage, 'projects');
+      body.secondaryImage = uploadRes.secure_url;
     }
 
     const project = await Project.create(body);

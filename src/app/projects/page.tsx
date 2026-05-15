@@ -103,9 +103,9 @@ export default function PublicProjectsPage() {
                 >
                   <Link href={`/projects/${project.slug}`} className="block">
                     <div className="relative aspect-[4/5] rounded-[48px] overflow-hidden shadow-2xl mb-8 bg-white border border-gray-100">
-                      {project.posterImage ? (
+                      {(project.secondaryImage || project.posterImage) ? (
                         <img
-                          src={project.posterImage}
+                          src={project.secondaryImage || project.posterImage}
                           alt={project.title}
                           className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110"
                         />

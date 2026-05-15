@@ -13,6 +13,7 @@ export interface IProject extends Document {
     ctaText2: string;
   };
   posterImage?: string;
+  secondaryImage?: string;
   status: 'active' | 'inactive';
   isVisible: boolean;
   slug: string;
@@ -34,6 +35,7 @@ const ProjectSchema: Schema = new Schema(
       ctaText2: { type: String, default: 'Become Member' },
     },
     posterImage: { type: String },
+    secondaryImage: { type: String },
     status: { type: String, enum: ['active', 'inactive'], default: 'active' },
     isVisible: { type: Boolean, default: true },
     slug: { type: String, unique: true, required: true },

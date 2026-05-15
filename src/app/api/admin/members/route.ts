@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
       .populate('assignedEmployeeId', 'fullName mobile employeeId')
       .populate({
         path: 'userId',
-        select: 'parentVendorId',
+        select: 'parentVendorId parentEmployeeCode parentVendorCode parentSubVendorCode',
         populate: {
           path: 'parentVendorId',
           select: 'fullName mobile employeeId'
@@ -45,26 +45,34 @@ export async function GET(req: NextRequest) {
       })
       .sort({ createdAt: -1 });
 
-    // Attach membership status to each member
+    // Attach membership status to each member and deduplicate by mobile
     const memberIds = members.map(m => m._id);
     const memberships = await Membership.find({ memberId: { $in: memberIds } });
 
-    const data = members.map(member => {
-      const membership = memberships.find(m => m.memberId.toString() === member._id.toString());
-      
-      // Fallback: If assignedEmployeeId is missing in WomenMember, 
-      // but parentVendorId exists in the linked User record, use that.
-      const employee = member.assignedEmployeeId || (member.userId as any)?.parentVendorId;
+    const uniqueMembersMap = new Map();
 
-      return {
-        ...member.toObject(),
-        assignedEmployeeId: employee, // Unified employee field
-        paymentStatus: member.membershipStatus === 'paid' ? 'Paid' : 'Pending',
-        membershipId: membership?.membershipId || 'N/A',
-        accountStatus: member.accountStatus,
-        connectionStatus: member.connectionStatus
-      };
+    members.forEach(member => {
+      // Use mobile as primary key for uniqueness as per requirements
+      if (!uniqueMembersMap.has(member.mobile)) {
+        const membership = memberships.find(m => m.memberId.toString() === member._id.toString());
+        
+        // Determine the assigned employee: 
+        // 1. Check direct assignment on WomenMember
+        // 2. Check parentVendorId on linked User record (often stores the assigned employee/vendor)
+        const employee = member.assignedEmployeeId || (member.userId as any)?.parentVendorId;
+
+        uniqueMembersMap.set(member.mobile, {
+          ...member.toObject(),
+          assignedEmployeeId: employee, // Unified employee object for UI
+          paymentStatus: member.membershipStatus === 'paid' ? 'Paid' : 'Pending',
+          membershipId: membership?.membershipId || 'N/A',
+          accountStatus: member.accountStatus,
+          connectionStatus: member.connectionStatus
+        });
+      }
     });
+
+    const data = Array.from(uniqueMembersMap.values());
 
     return successResponse(data);
   } catch (error: any) {

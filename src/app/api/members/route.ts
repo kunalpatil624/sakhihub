@@ -123,9 +123,37 @@ export async function GET(req: NextRequest) {
 
     const members = await WomenMember.find(query)
       .sort({ createdAt: -1 })
-      .populate('groupId', 'groupName village');
+      .populate('groupId', 'groupName village')
+      .populate('assignedEmployeeId', 'fullName mobile employeeId')
+      .populate({
+        path: 'userId',
+        select: 'parentVendorId parentEmployeeCode parentVendorCode parentSubVendorCode',
+        populate: {
+          path: 'parentVendorId',
+          select: 'fullName mobile employeeId'
+        }
+      });
 
-    return successResponse(members);
+    // Deduplicate and process members
+    const uniqueMembersMap = new Map();
+
+    members.forEach(member => {
+      // Use mobile as unique key
+      if (!uniqueMembersMap.has(member.mobile)) {
+        // Determine the assigned employee fallback
+        const employee = member.assignedEmployeeId || (member.userId as any)?.parentVendorId;
+
+        uniqueMembersMap.set(member.mobile, {
+          ...member.toObject(),
+          assignedEmployeeId: employee, // Unified employee field
+          paymentStatus: member.membershipStatus === 'paid' ? 'Paid' : 'Pending',
+          accountStatus: member.accountStatus,
+          connectionStatus: member.connectionStatus
+        });
+      }
+    });
+
+    return successResponse(Array.from(uniqueMembersMap.values()));
   } catch (error: any) {
     return errorResponse(error.message, 500);
   }
