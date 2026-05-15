@@ -11,6 +11,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
 import PasswordField from '@/components/ui/PasswordField';
 import { validatePassword } from '@/utils/validation';
+import { usePincodeAutofill } from '@/hooks/usePincodeAutofill';
 
 interface RegisterPartnerModalProps {
   isOpen: boolean;
@@ -105,6 +106,16 @@ export default function RegisterPartnerModal({
       };
     }
   }, [isOpen, role, initialParentId]);
+
+  const { loading: pincodeLoading } = usePincodeAutofill(formData.pincode, (data) => {
+    setFormData(prev => ({
+      ...prev,
+      state: data.state,
+      district: data.district,
+      block: data.block,
+      area: data.area[0] || ''
+    }));
+  });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -383,15 +394,21 @@ export default function RegisterPartnerModal({
 
                     <div className="space-y-2">
                       <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Pincode</label>
-                      <input 
-                        required
-                        type="text" 
-                        maxLength={6}
-                        value={formData.pincode}
-                        onChange={(e) => setFormData({...formData, pincode: e.target.value})}
-                        placeholder="6 digit pincode"
-                        className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-2xl font-bold focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all"
-                      />
+                      <div className="relative">
+                        <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                        <input 
+                          required
+                          type="text" 
+                          maxLength={6}
+                          value={formData.pincode}
+                          onChange={(e) => setFormData({...formData, pincode: e.target.value.replace(/\D/g, '')})}
+                          placeholder="6 digit pincode"
+                          className="w-full pl-12 pr-10 py-4 bg-gray-50 border border-gray-100 rounded-2xl font-bold focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all"
+                        />
+                        {pincodeLoading && (
+                          <div className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
+                        )}
+                      </div>
                     </div>
                   </div>
 

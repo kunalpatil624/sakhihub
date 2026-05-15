@@ -11,6 +11,7 @@ import { useRouter } from "next/navigation";
 import { useLanguage } from "@/context/LanguageContext";
 import PasswordField from "@/components/ui/PasswordField";
 import { validatePassword } from "@/utils/validation";
+import { usePincodeAutofill } from "@/hooks/usePincodeAutofill";
 
 const steps = [
   { id: 1, name: "Role", hindi: "भूमिका" },
@@ -91,7 +92,6 @@ export default function RegisterForm() {
   }, []);
 
   const [nearbyEmployees, setNearbyEmployees] = useState<any[]>([]);
-  const [pincodeLoading, setPincodeLoading] = useState(false);
   const [discoveryLoading, setDiscoveryLoading] = useState(false);
   const [requestStatus, setRequestStatus] = useState<{ [key: string]: string }>({});
 
@@ -102,33 +102,16 @@ export default function RegisterForm() {
     }
   }, [resendTimer]);
 
-  React.useEffect(() => {
-    if (formData.pincode.length === 6) {
-      handlePincodeLookup(formData.pincode);
-    }
-  }, [formData.pincode]);
-
-  const handlePincodeLookup = async (code: string) => {
-    setPincodeLoading(true);
-    try {
-      const res = await fetch(`/api/pincode/${code}`);
-      const result = await res.json();
-      if (result.success) {
-        setFormData(prev => ({
-          ...prev,
-          state: result.data.state,
-          district: result.data.district,
-          block: result.data.block,
-          area: result.data.area[0] || ""
-        }));
-        fetchNearbyEmployees(code, result.data.district, result.data.block);
-      }
-    } catch (err) {
-      console.error("Pincode lookup failed", err);
-    } finally {
-      setPincodeLoading(false);
-    }
-  };
+  const { loading: pincodeLoading } = usePincodeAutofill(formData.pincode, (data) => {
+    setFormData(prev => ({
+      ...prev,
+      state: data.state,
+      district: data.district,
+      block: data.block,
+      area: data.area[0] || ""
+    }));
+    fetchNearbyEmployees(formData.pincode, data.district, data.block);
+  });
 
   const fetchNearbyEmployees = async (pincode: string, district: string, block: string) => {
     setDiscoveryLoading(true);

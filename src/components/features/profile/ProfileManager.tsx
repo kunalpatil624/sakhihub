@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import axios from 'axios';
 import { motion } from 'framer-motion';
+import { usePincodeAutofill } from '@/hooks/usePincodeAutofill';
 
 export default function ProfileManager() {
   const [user, setUser] = useState<any>(null);
@@ -15,6 +16,15 @@ export default function ProfileManager() {
   const [formData, setFormData] = useState<any>({});
   const [preview, setPreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const { loading: pincodeLoading } = usePincodeAutofill(formData.pincode, (data) => {
+    setFormData((prev: any) => ({
+      ...prev,
+      state: data.state,
+      district: data.district,
+      block: data.block
+    }));
+  });
 
   const fetchProfile = async () => {
     try {
@@ -254,13 +264,21 @@ export default function ProfileManager() {
                   </div>
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-4">Pincode</label>
-                    <input 
-                      type="text" 
-                      name="pincode" 
-                      value={formData.pincode || ''} 
-                      onChange={handleChange}
-                      className="w-full px-6 py-4 bg-gray-50/50 border border-gray-100 rounded-2xl focus:ring-4 ring-primary/10 focus:border-primary transition-all outline-none font-bold text-secondary"
-                    />
+                    <div className="relative">
+                      <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300" size={18} />
+                      <input 
+                        type="text" 
+                        name="pincode" 
+                        maxLength={6}
+                        value={formData.pincode || ''} 
+                        onChange={(e) => setFormData({...formData, pincode: e.target.value.replace(/\D/g, '')})}
+                        className="w-full pl-12 pr-10 py-4 bg-gray-50/50 border border-gray-100 rounded-2xl focus:ring-4 ring-primary/10 focus:border-primary transition-all outline-none font-bold text-secondary"
+                        placeholder="6 digit pincode"
+                      />
+                      {pincodeLoading && (
+                        <div className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
+                      )}
+                    </div>
                   </div>
                   <div className="col-span-2 space-y-2">
                     <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-4">Detailed Address</label>
