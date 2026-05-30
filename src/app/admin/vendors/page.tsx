@@ -1,5 +1,6 @@
 'use client';
 
+import { getProxiedImageUrl } from "@/utils/imageUrl";
 import React, { useState, useEffect } from "react";
 import DashboardLayout from "@/components/features/dashboard/DashboardLayout";
 import { 
@@ -12,6 +13,7 @@ import axios from "axios";
 import { motion, AnimatePresence } from "framer-motion";
 import RegisterPartnerModal from "@/components/features/dashboard/RegisterPartnerModal";
 import HierarchyDetailView from "@/components/features/dashboard/HierarchyDetailView";
+import { getRequiredDocs } from "@/utils/documents";
 
 const statusFilters = ['all', 'pending', 'documents_uploaded', 'under_review', 'reupload_required', 'active', 'rejected'];
 
@@ -29,8 +31,8 @@ const getStatusBadge = (status: string) => {
   return map[status] || { label: status, className: 'bg-gray-100 text-gray-500' };
 };
 
-const getDocComplianceSummary = (documents: any) => {
-  const requiredDocs = ['ngoCertificate', 'panCard', 'aadhaarCard', 'bankPassbook'];
+const getDocComplianceSummary = (documents: any, vendorType?: string) => {
+  const requiredDocs = getRequiredDocs('vendor', vendorType);
   let uploaded = 0, approved = 0, rejected = 0;
   requiredDocs.forEach(d => {
     const doc = documents?.[d];
@@ -38,7 +40,7 @@ const getDocComplianceSummary = (documents: any) => {
     if (doc?.status === 'approved') approved++;
     if (doc?.status === 'rejected' || doc?.status === 'reupload_required') rejected++;
   });
-  return { total: 4, uploaded, approved, rejected };
+  return { total: requiredDocs.length, uploaded, approved, rejected };
 };
 
 export default function VendorManagement() {
@@ -46,6 +48,9 @@ export default function VendorManagement() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
+  const [dateFilter, setDateFilter] = useState("all");
+  const [customDate, setCustomDate] = useState("");
+  const [paymentFilter, setPaymentFilter] = useState("all");
   const [selectedVendor, setSelectedVendor] = useState<any>(null);
   const [hierarchyData, setHierarchyData] = useState<any>(null);
   const [loadingHierarchy, setLoadingHierarchy] = useState(false);
@@ -54,7 +59,7 @@ export default function VendorManagement() {
   const fetchVendors = async () => {
     setLoading(true);
     try {
-      const res = await axios.get(`/api/admin/vendors?status=${status}&search=${search}`);
+      const res = await axios.get(`/api/admin/vendors?status=${status}&search=${search}&dateRange=${dateFilter}&paymentStatus=${paymentFilter}&customDate=${customDate}`);
       if (res.data.success) setVendors(res.data.data);
     } catch (err) {
       console.error(err);
@@ -68,7 +73,7 @@ export default function VendorManagement() {
       fetchVendors();
     }, 500);
     return () => clearTimeout(timer);
-  }, [search, status]);
+  }, [search, status, dateFilter, paymentFilter, customDate]);
 
   // Body Scroll Lock
   useEffect(() => {
@@ -130,7 +135,7 @@ export default function VendorManagement() {
         <div className="flex justify-between items-start flex-wrap gap-6">
           <div>
             <h1 className="text-3xl md:text-4xl font-black text-secondary">Vendor Network</h1>
-            <p className="text-gray-400 font-bold mt-1 uppercase tracking-widest text-xs">Manage your primary recruitment partners and legal entities.</p>
+            <p className="text-gray-400 font-bold mt-1 uppercase tracking-widest text-xs">Manage your primary field partners and legal entities.</p>
           </div>
           <button 
             onClick={() => setShowRegisterModal(true)}
@@ -152,6 +157,37 @@ export default function VendorManagement() {
                 className="w-full pl-14 pr-5 py-4 bg-gray-50 border border-gray-100 rounded-2xl font-bold focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all"
               />
             </div>
+            <div className="flex gap-2">
+              <select
+                value={dateFilter}
+                onChange={(e) => setDateFilter(e.target.value)}
+                className="px-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl text-xs font-bold text-secondary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+              >
+                <option value="all">All Time</option>
+                <option value="today">Today</option>
+                <option value="yesterday">Yesterday</option>
+                <option value="custom">Custom Date</option>
+              </select>
+              
+              {dateFilter === 'custom' && (
+                <input 
+                  type="date"
+                  value={customDate}
+                  onChange={(e) => setCustomDate(e.target.value)}
+                  className="px-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl text-xs font-bold text-secondary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+                />
+              )}
+              
+              <select
+                value={paymentFilter}
+                onChange={(e) => setPaymentFilter(e.target.value)}
+                className="px-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl text-xs font-bold text-secondary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+              >
+                <option value="all">All Payments</option>
+                <option value="paid">Paid</option>
+                <option value="unpaid">Unpaid</option>
+              </select>
+            </div>
             <div className="flex gap-1.5 bg-gray-50 p-1.5 rounded-2xl overflow-x-auto no-scrollbar">
                {statusFilters.map((s) => (
                  <button 
@@ -172,6 +208,7 @@ export default function VendorManagement() {
                   <th className="p-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Vendor Profile</th>
                   <th className="p-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Code & Region</th>
                   <th className="p-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Document Compliance</th>
+                  <th className="p-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Payment Status</th>
                   <th className="p-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Status</th>
                   <th className="p-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Actions</th>
                 </tr>
@@ -183,19 +220,34 @@ export default function VendorManagement() {
                   <tr><td colSpan={5} className="p-20 text-center text-gray-400 font-bold italic">No vendors found matching your search.</td></tr>
                 ) : (
                   vendors.map((vendor) => {
-                    const compliance = getDocComplianceSummary(vendor.documents);
+                    const compliance = getDocComplianceSummary(vendor.documents, vendor.vendorType);
                     const badge = getStatusBadge(vendor.status);
                     
                     return (
                       <tr key={vendor._id} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors cursor-pointer group" onClick={() => fetchHierarchyDetails(vendor)}>
                         <td className="p-5">
                           <div className="flex gap-4 items-center">
-                            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-white font-black text-xl shadow-lg">
-                              {vendor.fullName[0]}
+                            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-white font-black text-xl shadow-lg overflow-hidden">
+                              {vendor.profileImage ? (
+                                <img src={getProxiedImageUrl(vendor.profileImage)} alt={vendor.fullName} className="w-full h-full object-cover" />
+                              ) : (
+                                vendor.fullName[0]
+                              )}
                             </div>
                             <div>
                               <p className="font-black text-secondary leading-tight">{vendor.fullName}</p>
-                              <p className="text-[10px] text-gray-400 font-bold mt-1 uppercase tracking-widest">Joined {new Date(vendor.createdAt).toLocaleDateString()}</p>
+                              <div className="flex items-center gap-2 mt-1">
+                                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Joined {new Date(vendor.createdAt).toLocaleDateString()}</p>
+                                {vendor.vendorType && (
+                                  <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest ${
+                                    vendor.vendorType === 'company' ? 'bg-blue-100 text-blue-600' :
+                                    vendor.vendorType === 'ngo_trust' ? 'bg-purple-100 text-purple-600' :
+                                    'bg-gray-100 text-gray-500'
+                                  }`}>
+                                    {vendor.vendorType === 'ngo_trust' ? 'NGO/Trust' : vendor.vendorType === 'company' ? 'Company' : 'Individual'}
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           </div>
                         </td>
@@ -211,7 +263,7 @@ export default function VendorManagement() {
                           <div className="flex flex-col gap-2">
                             <div className="flex items-center gap-2">
                               <div className="flex gap-1">
-                                {[0, 1, 2, 3].map(i => (
+                                {Array.from({ length: compliance.total }).map((_, i) => (
                                   <div key={i} className={`w-6 h-1.5 rounded-full ${
                                     i < compliance.approved ? 'bg-green-500' :
                                     i < compliance.uploaded ? 'bg-primary' :
@@ -222,7 +274,7 @@ export default function VendorManagement() {
                             </div>
                             <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-widest">
                               {compliance.uploaded > 0 && (
-                                <span className="text-primary flex items-center gap-1"><Upload size={10} /> {compliance.uploaded}/4</span>
+                                <span className="text-primary flex items-center gap-1"><Upload size={10} /> {compliance.uploaded}/{compliance.total}</span>
                               )}
                               {compliance.approved > 0 && (
                                 <span className="text-green-600 flex items-center gap-1"><FileCheck size={10} /> {compliance.approved}</span>
@@ -235,6 +287,26 @@ export default function VendorManagement() {
                               )}
                             </div>
                           </div>
+                        </td>
+                        <td className="p-5" onClick={(e) => e.stopPropagation()}>
+                          {vendor.paymentCompleted ? (
+                            <span className="px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest bg-green-100 text-green-600">
+                              Paid
+                            </span>
+                          ) : (vendor.subscriptionPaid || vendor.depositPaid) ? (
+                            <div className="flex flex-col gap-1">
+                              <span className={`px-2 py-1 rounded text-[8px] font-black uppercase tracking-widest whitespace-nowrap ${vendor.subscriptionPaid ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-500'}`}>
+                                Sub: {vendor.subscriptionPaid ? 'Paid' : 'Pending'}
+                              </span>
+                              <span className={`px-2 py-1 rounded text-[8px] font-black uppercase tracking-widest whitespace-nowrap ${vendor.depositPaid ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-500'}`}>
+                                Dep: {vendor.depositPaid ? 'Paid' : 'Pending'}
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest bg-red-100 text-red-600">
+                              Unpaid
+                            </span>
+                          )}
                         </td>
                         <td className="p-5">
                           <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest ${badge.className}`}>

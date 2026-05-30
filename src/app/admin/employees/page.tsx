@@ -7,19 +7,25 @@ import {
   Edit2, Trash2, ShieldCheck, ShieldAlert,
   Phone, Mail, Calendar, Filter, X,
   Briefcase, Network, Link2, ExternalLink,
-  CheckCircle2, Clock, AlertCircle, FileText
+  CheckCircle2, Clock, AlertCircle, FileText,
+  Landmark, UserCheck, FileCheck, RefreshCw
 } from "lucide-react";
 import axios from "axios";
 import { motion, AnimatePresence } from "framer-motion";
 import RegisterPartnerModal from "@/components/features/dashboard/RegisterPartnerModal";
 import DocumentReviewCard from "@/components/features/dashboard/DocumentReviewCard";
-import { REQUIRED_DOCS_BY_ROLE, getDocComplianceSummary } from "@/utils/documents";
+import { REQUIRED_DOCS_BY_ROLE, getDocComplianceSummary, getRequiredDocsForUser, getDocumentViewUrl } from "@/utils/documents";
+import { toast } from 'sonner';
+import { getProxiedImageUrl } from '@/utils/imageUrl';
 
 export default function EmployeeManagement() {
   const [employees, setEmployees] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
+  const [dateFilter, setDateFilter] = useState("all");
+  const [customDate, setCustomDate] = useState("");
+  const [paymentFilter, setPaymentFilter] = useState("all");
   const [selectedEmp, setSelectedEmp] = useState<any>(null);
   const [showRegisterModal, setShowRegisterModal] = useState(false);
   
@@ -28,10 +34,18 @@ export default function EmployeeManagement() {
   const [assignTarget, setAssignTarget] = useState<any>(null);
   const [isAssigning, setIsAssigning] = useState(false);
 
+  // Appointment Letter State
+  const [joiningDate, setJoiningDate] = useState('');
+  const [salary, setSalary] = useState('');
+  const [isGeneratingAppt, setIsGeneratingAppt] = useState(false);
+  const [activeTab, setActiveTab] = useState('overview');
+  const [signedDocRemarks, setSignedDocRemarks] = useState('');
+  const [signedDocActionLoading, setSignedDocActionLoading] = useState<string | null>(null);
+
   const fetchEmployees = async () => {
     setLoading(true);
     try {
-      const res = await axios.get(`/api/admin/employees?status=${status}&search=${search}`);
+      const res = await axios.get(`/api/admin/employees?status=${status}&search=${search}&dateRange=${dateFilter}&paymentStatus=${paymentFilter}&customDate=${customDate}`);
       if (res.data.success) setEmployees(res.data.data);
     } catch (err) {
       console.error(err);
@@ -58,7 +72,7 @@ export default function EmployeeManagement() {
       fetchEmployees();
     }, 500);
     return () => clearTimeout(timer);
-  }, [search, status]);
+  }, [search, status, dateFilter, paymentFilter, customDate]);
 
   const handleStatusUpdate = async (id: string, newStatus: string, remarks?: string) => {
     try {
@@ -99,13 +113,64 @@ export default function EmployeeManagement() {
       }
     } catch (err) {
       console.error(err);
-      alert("Failed to update assignment");
+      toast.error("Failed to update assignment");
     } finally {
       setIsAssigning(false);
     }
   };
 
-  const compliance = selectedEmp ? getDocComplianceSummary(selectedEmp.documents, 'employee') : null;
+  const generateOfferLetter = async () => {
+    if (!joiningDate || !salary) {
+      toast.error("Please enter both Joining Date and Salary.");
+      return;
+    }
+    setIsGeneratingAppt(true);
+    try {
+      const res = await axios.post(`/api/admin/users/${selectedEmp._id}/offer-letter`, {
+        joiningDate,
+        salary
+      });
+      if (res.data.success) {
+        setSelectedEmp(res.data.data);
+      }
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Failed to generate offer letter");
+    } finally {
+      setIsGeneratingAppt(false);
+    }
+  };
+
+  const updateDocumentLock = async (
+    empId: string,
+    docId: string,
+    isLocked: boolean,
+    isApproved: boolean,
+    adminRemarks?: string,
+    newStatus?: string
+  ) => {
+    try {
+      const res = await axios.post(`/api/admin/users/${empId}/documents/${docId}/lock`, {
+        isLocked,
+        isApproved,
+        adminRemarks,
+        newStatus
+      });
+      if (res.data.success && selectedEmp) {
+        // Refresh employee data to reflect the updated document status
+        setSelectedEmp((prev: any) => ({
+          ...prev,
+          offerLetterDetails: {
+            ...prev.offerLetterDetails,
+            ...res.data.data.document
+          }
+        }));
+      }
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed to update document status');
+    }
+  };
+
+  const compliance = selectedEmp ? getDocComplianceSummary(selectedEmp.documents, 'employee', undefined, selectedEmp.designation) : null;
 
   return (
     <DashboardLayout>
@@ -135,6 +200,37 @@ export default function EmployeeManagement() {
                 className="w-full pl-14 pr-5 py-4 bg-gray-50 border border-gray-100 rounded-2xl font-bold focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all"
               />
             </div>
+            <div className="flex gap-2">
+              <select
+                value={dateFilter}
+                onChange={(e) => setDateFilter(e.target.value)}
+                className="px-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl text-xs font-bold text-secondary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+              >
+                <option value="all">All Time</option>
+                <option value="today">Today</option>
+                <option value="yesterday">Yesterday</option>
+                <option value="custom">Custom Date</option>
+              </select>
+              
+              {dateFilter === 'custom' && (
+                <input 
+                  type="date"
+                  value={customDate}
+                  onChange={(e) => setCustomDate(e.target.value)}
+                  className="px-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl text-xs font-bold text-secondary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+                />
+              )}
+              
+              <select
+                value={paymentFilter}
+                onChange={(e) => setPaymentFilter(e.target.value)}
+                className="px-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl text-xs font-bold text-secondary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+              >
+                <option value="all">All Payments</option>
+                <option value="paid">Paid</option>
+                <option value="unpaid">Unpaid</option>
+              </select>
+            </div>
             <div className="flex gap-2 bg-gray-50 p-1.5 rounded-2xl">
                {['all', 'pending', 'active', 'rejected'].map((s) => (
                  <button 
@@ -155,6 +251,7 @@ export default function EmployeeManagement() {
                   <th className="p-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Employee Profile</th>
                   <th className="p-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Parent Network</th>
                   <th className="p-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Compliance</th>
+                  <th className="p-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Payment Status</th>
                   <th className="p-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Status</th>
                   <th className="p-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Actions</th>
                 </tr>
@@ -166,13 +263,17 @@ export default function EmployeeManagement() {
                    <tr><td colSpan={5} className="p-20 text-center text-gray-400 font-bold italic">No employees found.</td></tr>
                 ) : (
                    employees.map((emp) => {
-                     const empComp = getDocComplianceSummary(emp.documents, 'employee');
+                     const empComp = getDocComplianceSummary(emp.documents, 'employee', undefined, emp.designation);
                      return (
                       <tr key={emp._id} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors cursor-pointer group">
                         <td className="p-5" onClick={() => setSelectedEmp(emp)}>
                           <div className="flex gap-4 items-center">
-                            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-white font-black text-xl shadow-lg">
-                              {emp.fullName[0]}
+                            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-white font-black text-xl shadow-lg overflow-hidden">
+                              {emp.profileImage ? (
+                                <img src={getProxiedImageUrl(emp.profileImage)} alt={emp.fullName} className="w-full h-full object-cover" />
+                              ) : (
+                                emp.fullName[0]
+                              )}
                             </div>
                             <div>
                               <p className="font-black text-secondary leading-tight">{emp.fullName}</p>
@@ -212,6 +313,21 @@ export default function EmployeeManagement() {
                           </div>
                         </td>
                         <td className="p-5">
+                          {emp.paymentCompleted ? (
+                            <span className="px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest bg-green-100 text-green-600">
+                              Paid
+                            </span>
+                          ) : emp.subscriptionPaid ? (
+                            <span className="px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest bg-amber-100 text-amber-600">
+                              Sub Paid
+                            </span>
+                          ) : (
+                            <span className="px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest bg-red-100 text-red-600">
+                              Unpaid
+                            </span>
+                          )}
+                        </td>
+                        <td className="p-5">
                           <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest ${emp.status === 'active' ? 'bg-green-100 text-green-600' : emp.status === 'pending' ? 'bg-amber-100 text-amber-600' : 'bg-red-100 text-red-600'}`}>
                             {emp.status}
                           </span>
@@ -237,7 +353,7 @@ export default function EmployeeManagement() {
             <div className="fixed inset-0 z-[100] flex items-center justify-end">
               <motion.div 
                 initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                onClick={() => setSelectedEmp(null)}
+                onClick={() => { setSelectedEmp(null); setActiveTab('overview'); }}
                 className="absolute inset-0 bg-secondary/40 backdrop-blur-sm" 
               />
               <motion.div 
@@ -247,13 +363,17 @@ export default function EmployeeManagement() {
                 {/* Header */}
                 <div className="bg-secondary-dark p-10 text-white relative shrink-0">
                   <button 
-                    onClick={() => setSelectedEmp(null)}
+                    onClick={() => { setSelectedEmp(null); setActiveTab('overview'); }}
                     className="absolute right-8 top-8 w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center hover:bg-white/20 transition-all"
                   ><X size={24} /></button>
                   
                   <div className="flex gap-8 items-center">
-                    <div className="w-24 h-24 rounded-[32px] bg-white text-secondary-dark flex items-center justify-center text-4xl font-black shadow-2xl shadow-black/20">
-                      {selectedEmp.fullName[0]}
+                    <div className="w-24 h-24 rounded-[32px] bg-white text-secondary-dark flex items-center justify-center text-4xl font-black shadow-2xl shadow-black/20 overflow-hidden">
+                      {selectedEmp.profileImage ? (
+                        <img src={getProxiedImageUrl(selectedEmp.profileImage)} alt={selectedEmp.fullName} className="w-full h-full object-cover" />
+                      ) : (
+                        selectedEmp.fullName[0]
+                      )}
                     </div>
                     <div>
                       <h2 className="text-4xl font-black mb-2">{selectedEmp.fullName}</h2>
@@ -269,11 +389,28 @@ export default function EmployeeManagement() {
                       </div>
                     </div>
                   </div>
+
+                  <div className="flex gap-2 mt-8 bg-white/5 p-1.5 rounded-[24px] border border-white/10 w-fit">
+                    <button
+                      onClick={() => setActiveTab('overview')}
+                      className={`flex items-center gap-2 px-6 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all ${activeTab === 'overview' ? 'bg-white text-secondary shadow-xl' : 'text-white/60 hover:text-white hover:bg-white/5'}`}
+                    >
+                      Overview & Compliance
+                    </button>
+                    <button
+                      onClick={() => setActiveTab('agreement')}
+                      className={`flex items-center gap-2 px-6 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all ${activeTab === 'agreement' ? 'bg-white text-secondary shadow-xl' : 'text-white/60 hover:text-white hover:bg-white/5'}`}
+                    >
+                      Agreement
+                    </button>
+                  </div>
                 </div>
 
                 {/* Tabs / Content Scrollable Area */}
                 <div className="flex-1 overflow-y-auto p-10">
-                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 mb-12">
+                  {activeTab === 'overview' && (
+                    <>
+                       <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 mb-12">
                       <div className="space-y-6">
                          <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest border-l-4 border-primary pl-4">Personal & Network Details</h4>
                          <div className="grid grid-cols-2 gap-6 bg-gray-50 p-6 rounded-3xl border border-gray-100">
@@ -298,16 +435,23 @@ export default function EmployeeManagement() {
 
                       <div className="space-y-6">
                          <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest border-l-4 border-amber-500 pl-4">Operational Status</h4>
-                         <div className="grid grid-cols-2 gap-6 bg-gray-50 p-6 rounded-3xl border border-gray-100 h-full">
-                            <div className="flex flex-col items-center justify-center p-4 bg-white rounded-2xl shadow-sm border border-gray-100">
-                               <ShieldCheck size={24} className={selectedEmp.isVerified ? 'text-green-500' : 'text-gray-200'} />
+                         <div className="grid grid-cols-3 gap-4 bg-gray-50 p-6 rounded-3xl border border-gray-100 h-full">
+                            <div className="flex flex-col items-center justify-center p-3 bg-white rounded-2xl shadow-sm border border-gray-100">
+                               <ShieldCheck size={20} className={selectedEmp.isVerified ? 'text-green-500' : 'text-gray-200'} />
                                <p className="text-[9px] font-black uppercase mt-2 text-gray-400">Verified</p>
-                               <p className="font-black text-secondary text-xs">{selectedEmp.isVerified ? 'YES' : 'NO'}</p>
+                               <p className="font-black text-secondary text-[11px]">{selectedEmp.isVerified ? 'YES' : 'NO'}</p>
                             </div>
-                            <div className="flex flex-col items-center justify-center p-4 bg-white rounded-2xl shadow-sm border border-gray-100">
-                               <Network size={24} className={selectedEmp.dashboardAccess ? 'text-primary' : 'text-gray-200'} />
+                            <div className="flex flex-col items-center justify-center p-3 bg-white rounded-2xl shadow-sm border border-gray-100">
+                               <Network size={20} className={selectedEmp.dashboardAccess ? 'text-primary' : 'text-gray-200'} />
                                <p className="text-[9px] font-black uppercase mt-2 text-gray-400">Dashboard</p>
-                               <p className="font-black text-secondary text-xs">{selectedEmp.dashboardAccess ? 'ENABLED' : 'BLOCKED'}</p>
+                               <p className="font-black text-secondary text-[11px]">{selectedEmp.dashboardAccess ? 'ENABLED' : 'BLOCKED'}</p>
+                            </div>
+                            <div className="flex flex-col items-center justify-center p-3 bg-white rounded-2xl shadow-sm border border-gray-100">
+                               <span className={`text-[10px] font-black leading-none ${selectedEmp.paymentCompleted ? 'text-green-500' : selectedEmp.subscriptionPaid ? 'text-amber-500' : 'text-red-500'}`}>
+                                 {selectedEmp.paymentCompleted ? 'PAID' : selectedEmp.subscriptionPaid ? 'SUB PAID' : 'UNPAID'}
+                               </span>
+                               <p className="text-[9px] font-black uppercase mt-2 text-gray-400">Payment</p>
+                               <p className="font-black text-secondary text-[10px]">{selectedEmp.paymentCompleted || selectedEmp.subscriptionPaid ? 'COMPLETED' : 'PENDING'}</p>
                             </div>
                          </div>
                       </div>
@@ -326,8 +470,79 @@ export default function EmployeeManagement() {
                         </div>
                       </div>
 
+                      {/* Credential Details Block */}
+                      <div className="bg-gray-50/50 border border-gray-100 rounded-[32px] p-6 space-y-6">
+                        <h5 className="text-xs font-black text-secondary uppercase tracking-widest flex items-center gap-2 border-b border-gray-100 pb-3">
+                          <FileText size={16} className="text-primary" /> Submitted Credential Details
+                        </h5>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          {/* Aadhaar & PAN Card Info */}
+                          <div className="space-y-4">
+                            <div className="bg-white p-5 rounded-2xl border border-gray-50 shadow-sm flex items-start gap-4">
+                              <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                                <UserCheck size={20} />
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Aadhaar Number</p>
+                                <p className="font-mono font-bold text-secondary text-sm mt-1 truncate">
+                                  {selectedEmp.aadhaarNumber ? selectedEmp.aadhaarNumber.replace(/(\d{4})/g, '$1 ').trim() : 'Not Provided'}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="bg-white p-5 rounded-2xl border border-gray-50 shadow-sm flex items-start gap-4">
+                              <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                                <FileCheck size={20} />
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">PAN Number</p>
+                                <p className="font-mono font-bold text-secondary text-sm mt-1 truncate">
+                                  {selectedEmp.panNumber || 'Not Provided'}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Bank details info */}
+                          <div className="bg-white p-5 rounded-2xl border border-gray-50 shadow-sm flex flex-col gap-4">
+                            <div className="flex items-center gap-3 border-b border-gray-50 pb-2">
+                              <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                                <Landmark size={20} />
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Bank Details</p>
+                                <p className="font-black text-secondary text-xs truncate">{selectedEmp.bankDetails?.bankName || 'Not Provided'}</p>
+                              </div>
+                            </div>
+                            {selectedEmp.bankDetails?.accountNumber ? (
+                              <div className="grid grid-cols-2 gap-4 text-xs">
+                                <div className="min-w-0">
+                                  <p className="text-[8px] font-black text-gray-400 uppercase">Account Holder</p>
+                                  <p className="font-bold text-secondary truncate mt-0.5">{selectedEmp.bankDetails?.accountHolderName || 'N/A'}</p>
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="text-[8px] font-black text-gray-400 uppercase">Account Number</p>
+                                  <p className="font-mono font-bold text-secondary truncate mt-0.5">{selectedEmp.bankDetails?.accountNumber}</p>
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="text-[8px] font-black text-gray-400 uppercase">IFSC Code</p>
+                                  <p className="font-mono font-bold text-secondary truncate mt-0.5">{selectedEmp.bankDetails?.ifscCode || 'N/A'}</p>
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="text-[8px] font-black text-gray-400 uppercase">Branch</p>
+                                  <p className="font-bold text-secondary truncate mt-0.5">{selectedEmp.bankDetails?.branchName || 'N/A'}</p>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="text-center py-4 text-gray-400 font-bold italic text-xs">
+                                Bank details not submitted.
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
                       <div className="grid grid-cols-1 gap-6">
-                        {REQUIRED_DOCS_BY_ROLE.employee.map(type => (
+                        {getRequiredDocsForUser('employee', selectedEmp.documents, undefined, selectedEmp.designation).map(type => (
                           <DocumentReviewCard 
                             key={type}
                             type={type}
@@ -337,16 +552,269 @@ export default function EmployeeManagement() {
                         ))}
                       </div>
                    </section>
+                    </>
+                  )}
+
+                  {activeTab === 'agreement' && (
+                    <div className="max-w-2xl mx-auto space-y-8 py-8">
+                      <div className="text-center">
+                        <div className="w-16 h-16 bg-primary/10 text-primary rounded-2xl mx-auto flex items-center justify-center mb-4">
+                          <FileText size={32} />
+                        </div>
+                        <h3 className="text-2xl font-black text-secondary tracking-tight">Employee Offer Letter</h3>
+                        <p className="text-sm text-gray-500 font-bold mt-2">
+                          Generate the official offer letter for this employee.
+                        </p>
+                      </div>
+
+                      {selectedEmp.offerLetterDetails ? (
+                        <>
+                        <div className="bg-green-50 border border-green-200 rounded-[32px] p-8 text-center relative overflow-hidden">
+                          <div className="absolute top-0 right-0 w-32 h-32 bg-green-200/50 rounded-full blur-2xl -mr-16 -mt-16" />
+                          <div className="relative z-10">
+                            <CheckCircle2 size={48} className="text-green-500 mx-auto mb-4" />
+                            <h4 className="text-xl font-black text-green-800">Employee Offer Letter Generated Successfully</h4>
+                            <p className="text-sm text-green-700 font-bold mt-2 mb-6">
+                              Offer Letter ID: <span className="font-mono bg-white px-2 py-1 rounded">{selectedEmp.offerLetterDetails.offerLetterId}</span>
+                            </p>
+                            <a 
+                              href={`/employee-offer-letter/${selectedEmp._id}`} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-2 bg-green-600 text-white px-8 py-3 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-green-700 transition-colors shadow-lg shadow-green-200"
+                            >
+                              <ExternalLink size={16} /> Preview & Print Letter
+                            </a>
+                          </div>
+                        </div>
+
+                        {/* Signed Document Review Panel */}
+                        {(() => {
+                          const ol = selectedEmp.offerLetterDetails;
+                          const docStatus = ol.status || 'generated';
+                          const isDocLocked = ol.isLocked;
+
+                          const statusConfig: Record<string, { label: string; cls: string }> = {
+                            generated: { label: 'Generated — Awaiting Signed Copy', cls: 'bg-blue-100 text-blue-700' },
+                            uploaded:  { label: 'Signed Copy Uploaded — Pending Review', cls: 'bg-amber-100 text-amber-700' },
+                            under_review: { label: 'Under Review', cls: 'bg-amber-100 text-amber-700' },
+                            approved:  { label: 'Approved & Locked', cls: 'bg-green-100 text-green-700' },
+                            rejected:  { label: 'Rejected', cls: 'bg-red-100 text-red-700' },
+                            reupload_required: { label: 'Re-upload Requested', cls: 'bg-orange-100 text-orange-700' },
+                          };
+                          const meta = statusConfig[docStatus] || statusConfig.generated;
+
+                          return (
+                            <div className="bg-white border border-gray-100 shadow-soft rounded-[32px] p-8 space-y-6">
+                              {/* Header */}
+                              <div className="flex items-start justify-between gap-4">
+                                <div>
+                                  <h4 className="text-lg font-black text-secondary">
+                                    Offer Letter — Signed Copy Review
+                                  </h4>
+                                  <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1">
+                                    ID: {ol.offerLetterId}
+                                  </p>
+                                </div>
+                                <span className={`px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest shrink-0 ${meta.cls}`}>
+                                  {meta.label}
+                                </span>
+                              </div>
+
+                              {/* Signed copy actions / preview */}
+                              {ol.uploadedDocumentUrl ? (
+                                <div className="space-y-4">
+                                  <div className="flex flex-col sm:flex-row gap-3">
+                                    <a
+                                      href={getDocumentViewUrl(ol.uploadedDocumentUrl)}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-gray-50 text-secondary border border-gray-200 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-gray-100 transition-colors"
+                                    >
+                                      <ExternalLink size={14} /> View Signed Document
+                                    </a>
+                                    {!isDocLocked && (
+                                      <a
+                                        href={`/employee-offer-letter/${selectedEmp._id}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-gray-50 text-secondary border border-gray-200 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-gray-100 transition-colors"
+                                      >
+                                        <ExternalLink size={14} /> View Generated Copy
+                                      </a>
+                                    )}
+                                  </div>
+
+                                  {/* Admin Remarks Input */}
+                                  {!isDocLocked && (
+                                    <div>
+                                      <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-1.5">
+                                        Admin Remarks (required for rejection / reupload request)
+                                      </label>
+                                      <textarea
+                                        value={signedDocRemarks}
+                                        onChange={e => setSignedDocRemarks(e.target.value)}
+                                        placeholder="Enter remarks for the employee..."
+                                        rows={2}
+                                        className="w-full bg-gray-50 border border-gray-200 rounded-2xl px-4 py-3 text-xs font-bold placeholder:text-gray-300 focus:outline-none focus:border-primary resize-none"
+                                      />
+                                    </div>
+                                  )}
+
+                                  {/* Display previously saved remarks */}
+                                  {ol.adminRemarks && (docStatus === 'rejected' || docStatus === 'reupload_required') && (
+                                    <div className="p-4 bg-orange-50 border border-orange-100 rounded-2xl flex items-start gap-3">
+                                      <AlertCircle size={16} className="text-orange-500 shrink-0 mt-0.5" />
+                                      <div>
+                                        <p className="text-[9px] font-black text-orange-700 uppercase tracking-widest mb-1">Previous Remarks</p>
+                                        <p className="text-xs font-bold text-orange-800">{ol.adminRemarks}</p>
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {/* Action Buttons */}
+                                  <div className="flex flex-col sm:flex-row gap-2">
+                                    {isDocLocked ? (
+                                      <button
+                                        onClick={async () => {
+                                          setSignedDocActionLoading('unlock');
+                                          await updateDocumentLock(selectedEmp._id, ol._id, false, false, undefined, 'uploaded');
+                                          setSignedDocActionLoading(null);
+                                        }}
+                                        disabled={!!signedDocActionLoading}
+                                        className="flex-1 px-4 py-3 bg-amber-50 text-amber-700 rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-amber-100 transition-colors flex items-center justify-center gap-2"
+                                      >
+                                        <AlertCircle size={14} /> {signedDocActionLoading === 'unlock' ? 'Unlocking...' : 'Unlock Document'}
+                                      </button>
+                                    ) : (
+                                      <>
+                                        <button
+                                          onClick={async () => {
+                                            setSignedDocActionLoading('approve');
+                                            await updateDocumentLock(selectedEmp._id, ol._id, true, true, signedDocRemarks || undefined, 'approved');
+                                            setSignedDocRemarks('');
+                                            setSignedDocActionLoading(null);
+                                          }}
+                                          disabled={!!signedDocActionLoading}
+                                          className={`flex-1 px-4 py-3 rounded-xl font-black text-[9px] uppercase tracking-widest flex items-center justify-center gap-2 transition-colors ${
+                                            docStatus === 'approved' ? 'bg-green-500 text-white shadow-lg shadow-green-200' : 'bg-green-50 text-green-700 hover:bg-green-100'
+                                          }`}
+                                        >
+                                          <ShieldCheck size={14} /> {signedDocActionLoading === 'approve' ? 'Approving...' : 'Approve & Lock'}
+                                        </button>
+                                        <button
+                                          onClick={async () => {
+                                            if (!signedDocRemarks.trim()) {
+                                              toast.error('Please enter remarks before requesting a reupload.');
+                                              return;
+                                            }
+                                            setSignedDocActionLoading('reupload');
+                                            await updateDocumentLock(selectedEmp._id, ol._id, false, false, signedDocRemarks, 'reupload_required');
+                                            setSignedDocRemarks('');
+                                            setSignedDocActionLoading(null);
+                                          }}
+                                          disabled={!!signedDocActionLoading}
+                                          className={`flex-1 px-4 py-3 rounded-xl font-black text-[9px] uppercase tracking-widest flex items-center justify-center gap-2 transition-colors ${
+                                            docStatus === 'reupload_required' ? 'bg-amber-500 text-white shadow-lg shadow-amber-200' : 'bg-amber-50 text-amber-700 hover:bg-amber-100'
+                                          }`}
+                                        >
+                                          <RefreshCw size={14} /> {signedDocActionLoading === 'reupload' ? 'Requesting...' : 'Request Reupload'}
+                                        </button>
+                                        <button
+                                          onClick={async () => {
+                                            if (!signedDocRemarks.trim()) {
+                                              toast.error('Please enter a reason for rejection.');
+                                              return;
+                                            }
+                                            setSignedDocActionLoading('reject');
+                                            await updateDocumentLock(selectedEmp._id, ol._id, false, false, signedDocRemarks, 'rejected');
+                                            setSignedDocRemarks('');
+                                            setSignedDocActionLoading(null);
+                                          }}
+                                          disabled={!!signedDocActionLoading}
+                                          className={`flex-1 px-4 py-3 rounded-xl font-black text-[9px] uppercase tracking-widest flex items-center justify-center gap-2 transition-colors ${
+                                            docStatus === 'rejected' ? 'bg-red-500 text-white shadow-lg shadow-red-200' : 'bg-red-50 text-red-700 hover:bg-red-100'
+                                          }`}
+                                        >
+                                          <X size={14} /> {signedDocActionLoading === 'reject' ? 'Rejecting...' : 'Reject'}
+                                        </button>
+                                      </>
+                                    )}
+                                  </div>
+
+                                  {isDocLocked && (
+                                    <p className="text-[10px] text-green-600 font-bold uppercase tracking-widest flex items-center justify-center gap-1">
+                                      <CheckCircle2 size={12} /> Document is verified and locked
+                                    </p>
+                                  )}
+                                </div>
+                              ) : (
+                                <div className="flex flex-col items-center justify-center bg-gray-50 rounded-2xl border border-dashed border-gray-200 p-8 text-center">
+                                  <FileText size={32} className="text-gray-200 mb-3" />
+                                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                                    Signed copy not yet uploaded
+                                  </p>
+                                  <p className="text-[10px] text-gray-400 font-bold mt-2">
+                                    The employee must download, sign, and upload the document from their dashboard.
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()}
+                        </>
+                      ) : (
+                        <div className="bg-gray-50 p-8 rounded-[32px] border border-gray-100">
+                          <div className="space-y-6">
+                            <div>
+                              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Joining Date</label>
+                              <input 
+                                type="date" 
+                                value={joiningDate}
+                                onChange={(e) => setJoiningDate(e.target.value)}
+                                className="w-full px-5 py-3 rounded-2xl bg-white border border-gray-200 font-bold text-secondary focus:outline-none focus:border-primary"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Fixed Remuneration (Salary)</label>
+                              <div className="relative">
+                                <span className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-400 font-bold">₹</span>
+                                <input 
+                                  type="number" 
+                                  value={salary}
+                                  onChange={(e) => setSalary(e.target.value)}
+                                  placeholder="e.g. 15000"
+                                  className="w-full pl-10 pr-5 py-3 rounded-2xl bg-white border border-gray-200 font-bold text-secondary focus:outline-none focus:border-primary"
+                                />
+                              </div>
+                            </div>
+                            <div className="flex gap-4">
+                                  <button
+                                    onClick={generateOfferLetter}
+                                    disabled={isGeneratingAppt}
+                                    className="flex-1 bg-primary text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-primary/90 transition-colors disabled:opacity-50"
+                                  >
+                                    {isGeneratingAppt ? 'Generating...' : 'Generate Offer Letter'}
+                                  </button>
+                                </div>
+                            <p className="text-[10px] text-gray-400 font-bold text-center uppercase tracking-widest">
+                              * Other details will be auto-filled from the employee profile.
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {/* Footer Actions */}
                 <div className="p-8 bg-gray-50 border-t border-gray-100 flex justify-between items-center shrink-0">
                    <div className="flex gap-4">
-                      {selectedEmp.status === 'pending' || selectedEmp.status === 'rejected' ? (
+                      {['pending', 'rejected', 'suspended'].includes(selectedEmp.status) ? (
                         <button 
                           onClick={() => handleStatusUpdate(selectedEmp._id, 'active')}
                           className="px-8 py-4 bg-gradient-to-r from-primary to-secondary text-white font-black text-xs uppercase tracking-widest rounded-2xl shadow-xl shadow-primary/20 hover:scale-105 transition-all"
-                        >Approve & Activate</button>
+                        >{selectedEmp.status === 'suspended' ? 'Re-activate Employee' : 'Approve & Activate'}</button>
                       ) : (
                         <button 
                           onClick={() => handleStatusUpdate(selectedEmp._id, 'suspended')}
@@ -412,6 +880,28 @@ export default function EmployeeManagement() {
                  </div>
 
                 <div className="p-8 overflow-y-auto">
+                   {assignTarget.parentVendorId && (
+                      <div className="mb-6 p-6 bg-primary/5 border border-primary/20 rounded-3xl flex justify-between items-center relative overflow-hidden">
+                         <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full -mr-16 -mt-16 blur-2xl"></div>
+                         <div className="relative z-10">
+                            <p className="text-[10px] text-primary font-black uppercase tracking-widest mb-1 flex items-center gap-1"><CheckCircle2 size={12} /> Currently Assigned Parent</p>
+                            {(() => {
+                               const currentParent = allPartners.find(p => p._id === assignTarget.parentVendorId);
+                               if (currentParent) {
+                                 return (
+                                   <>
+                                     <h5 className="text-xl font-black text-secondary mt-1">{currentParent.fullName}</h5>
+                                     <p className="text-xs text-gray-500 font-bold mt-1 uppercase">
+                                       {currentParent.role.replace('_', ' ')} • {currentParent.vendorCode || currentParent.subVendorCode} • {currentParent.mobile}
+                                     </p>
+                                   </>
+                                 );
+                               }
+                               return <p className="text-sm font-bold text-gray-500 mt-1">ID: {assignTarget.parentVendorId}</p>;
+                            })()}
+                         </div>
+                      </div>
+                   )}
                    <div className="grid grid-cols-1 gap-4">
                       {allPartners.map(partner => (
                         <button

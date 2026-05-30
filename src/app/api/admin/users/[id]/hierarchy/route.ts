@@ -4,6 +4,7 @@ import User from '@/models/User';
 import WomenMember from '@/models/WomenMember';
 import Group from '@/models/Group';
 import Campaign from '@/models/Campaign';
+import Document from '@/models/Document';
 import { getAuthSession } from '@/lib/auth';
 import { successResponse, errorResponse } from '@/utils/response';
 import mongoose from 'mongoose';
@@ -131,9 +132,103 @@ export async function GET(
       counts.groups = groups.length;
     }
 
+    let digitalCertificates: any[] = [];
+    let userObj = user.toObject();
+
+    if (user.role === 'employee') {
+      const EmployeeOfferLetter = (await import('@/models/EmployeeOfferLetter')).default;
+      const EmployeeCertificate = (await import('@/models/EmployeeCertificate')).default;
+      
+      const offerLetter = await EmployeeOfferLetter.findOne({ employeeId: user._id }).lean();
+      if (offerLetter) {
+        userObj.offerLetterDetails = offerLetter;
+      }
+
+      const certs = await EmployeeCertificate.find({ employeeId: user._id }).lean();
+      
+      digitalCertificates = [
+        ...(offerLetter ? [{
+          _id: offerLetter._id,
+          type: 'employee_offer_letter',
+          title: 'Employee Offer Letter',
+          fileUrl: (offerLetter as any).pdfUrl,
+          uploadedDocumentUrl: (offerLetter as any).uploadedDocumentUrl,
+          status: offerLetter.status,
+          isLocked: (offerLetter as any).isLocked || false,
+          adminRemarks: (offerLetter as any).adminRemarks,
+          agreementId: offerLetter.offerLetterId,
+          createdAt: offerLetter.createdAt,
+          visibleToEmployee: true
+        }] : []),
+        ...certs.map(c => ({
+          _id: c._id,
+          type: c.certificateType,
+          title: c.title,
+          fileUrl: c.fileUrl,
+          createdAt: c.createdAt,
+          visibleToEmployee: true
+        }))
+      ];
+    } else if (['vendor', 'sub_vendor'].includes(user.role)) {
+      const VendorAgreement = (await import('@/models/VendorAgreement')).default;
+      const VendorMOU = (await import('@/models/VendorMOU')).default;
+      const VendorCertificate = (await import('@/models/VendorCertificate')).default;
+
+      const agreement = await VendorAgreement.findOne({ vendorId: user._id }).lean();
+      if (agreement) {
+        userObj.appointmentDetails = agreement;
+        userObj.vendorAgreementDetails = agreement;
+      }
+
+      const agreements = agreement ? [agreement] : [];
+      const mous = await VendorMOU.find({ vendorId: user._id }).lean();
+      const certs = await VendorCertificate.find({ vendorId: user._id }).lean();
+
+      digitalCertificates = [
+        ...agreements.map(a => {
+          // Backward compat: old agreements generated with isLocked:true before fix
+          const effectiveLocked = ((a as any).status === 'generated' && !(a as any).uploadedDocumentUrl) ? false : ((a as any).isLocked || false);
+          return {
+            _id: a._id,
+            type: 'auth_letter',
+            title: 'Partnership Agreement',
+            fileUrl: (a as any).fileUrl || `/api/vendor/agreement/${(a as any).agreementId}/preview`,
+            uploadedDocumentUrl: (a as any).uploadedDocumentUrl,
+            status: (a as any).status,
+            isLocked: effectiveLocked,
+            adminRemarks: (a as any).adminRemarks,
+            agreementId: (a as any).agreementId,
+            createdAt: (a as any).createdAt,
+            visibleToVendor: true
+          };
+        }),
+        ...mous.map(m => ({
+          _id: m._id,
+          type: 'ngo_mou',
+          title: 'NGO MOU',
+          fileUrl: (m as any).fileUrl,
+          uploadedDocumentUrl: (m as any).uploadedDocumentUrl,
+          status: (m as any).status,
+          isLocked: (m as any).isLocked || false,
+          adminRemarks: (m as any).adminRemarks,
+          createdAt: (m as any).createdAt,
+          visibleToVendor: true
+        })),
+        ...certs.map(c => ({
+          _id: c._id,
+          type: c.certificateType,
+          title: c.title,
+          fileUrl: (c as any).fileUrl,
+          createdAt: (c as any).createdAt,
+          visibleToVendor: true
+        }))
+      ];
+    }
+
     return successResponse({
-      user,
+      user: userObj,
       counts,
+      digitalCertificates,
       hierarchy: {
         subVendors,
         employees,

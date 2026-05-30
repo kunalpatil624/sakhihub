@@ -8,17 +8,22 @@ import {
 } from "lucide-react";
 import axios from "axios";
 import AssignEmployeeModal from "@/components/features/dashboard/AssignEmployeeModal";
+import { toast } from 'sonner';
+import { getProxiedImageUrl } from '@/utils/imageUrl';
 
 export default function MemberManagement() {
   const [members, setMembers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [dateFilter, setDateFilter] = useState("all");
+  const [customDate, setCustomDate] = useState("");
+  const [paymentFilter, setPaymentFilter] = useState("all");
   const [assigningTo, setAssigningTo] = useState<any>(null);
 
   const fetchMembers = async () => {
     setLoading(true);
     try {
-      const res = await axios.get(`/api/admin/members?search=${search}`);
+      const res = await axios.get(`/api/admin/members?search=${search}&dateRange=${dateFilter}&paymentStatus=${paymentFilter}&customDate=${customDate}`);
       if (res.data.success) setMembers(res.data.data);
     } catch (err) {
       console.error(err);
@@ -32,7 +37,7 @@ export default function MemberManagement() {
       fetchMembers();
     }, 500);
     return () => clearTimeout(timer);
-  }, [search]);
+  }, [search, dateFilter, paymentFilter, customDate]);
 
   const handleStatusUpdate = async (id: string, accountStatus: string) => {
     try {
@@ -42,7 +47,7 @@ export default function MemberManagement() {
       }
     } catch (err) {
       console.error(err);
-      alert("Failed to update member status");
+      toast.error("Failed to update member status");
     }
   };
 
@@ -76,6 +81,37 @@ export default function MemberManagement() {
                   placeholder="Search by member, mobile or village..." 
                   className="w-full pl-12 pr-4 py-4 rounded-2xl border border-gray-100 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
                 />
+              </div>
+              <div className="flex gap-2">
+                <select
+                  value={dateFilter}
+                  onChange={(e) => setDateFilter(e.target.value)}
+                  className="px-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl text-xs font-bold text-secondary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+                >
+                  <option value="all">All Time</option>
+                  <option value="today">Today</option>
+                  <option value="yesterday">Yesterday</option>
+                  <option value="custom">Custom Date</option>
+                </select>
+                
+                {dateFilter === 'custom' && (
+                  <input 
+                    type="date"
+                    value={customDate}
+                    onChange={(e) => setCustomDate(e.target.value)}
+                    className="px-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl text-xs font-bold text-secondary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+                  />
+                )}
+                
+                <select
+                  value={paymentFilter}
+                  onChange={(e) => setPaymentFilter(e.target.value)}
+                  className="px-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl text-xs font-bold text-secondary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+                >
+                  <option value="all">All Payments</option>
+                  <option value="paid">Paid</option>
+                  <option value="unpaid">Unpaid/Free</option>
+                </select>
               </div>
             </div>
 
@@ -118,13 +154,15 @@ export default function MemberManagement() {
                           </div>
                         </td>
                         <td style={{ padding: '15px 20px' }}>
-                          {member.assignedEmployeeId ? (
+                          {member.assignedEmployeeId && typeof member.assignedEmployeeId === 'object' && member.assignedEmployeeId.fullName ? (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                               <p style={{ fontWeight: '700', fontSize: '0.9rem', color: 'var(--secondary)', margin: 0 }}>{member.assignedEmployeeId.fullName}</p>
-                              <p style={{ fontSize: '0.75rem', color: 'var(--primary)', fontWeight: '700', margin: 0 }}>ID: {member.assignedEmployeeId.employeeId}</p>
+                              <p style={{ fontSize: '0.75rem', color: 'var(--primary)', fontWeight: '700', margin: 0 }}>ID: {member.assignedEmployeeId.employeeId || 'N/A'}</p>
                             </div>
                           ) : (
-                            <span style={{ fontSize: '0.8rem', color: '#999', fontStyle: 'italic' }}>Unassigned</span>
+                            <span style={{ fontSize: '0.8rem', color: '#999', fontStyle: 'italic' }}>
+                              {member.assignedEmployeeId && typeof member.assignedEmployeeId === 'string' ? `ID: ${member.assignedEmployeeId}` : 'Unassigned'}
+                            </span>
                           )}
                         </td>
                         <td style={{ padding: '15px 20px' }}>

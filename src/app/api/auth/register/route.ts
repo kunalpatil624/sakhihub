@@ -3,7 +3,9 @@ import mongoose from 'mongoose';
 import dbConnect from '@/lib/mongodb';
 import User from '@/models/User';
 import PendingUser from '@/models/PendingUser';
-import { hashPassword } from '@/lib/auth';
+import WomenMember from '@/models/WomenMember';
+import MemberRequest from '@/models/MemberRequest';
+import { hashPassword, getAuthSession } from '@/lib/auth';
 import { successResponse, errorResponse } from '@/utils/response';
 import { generateOTP, hashOTP } from '@/lib/otp';
 import { sendEmail } from '@/lib/email';
@@ -15,12 +17,12 @@ export async function POST(req: NextRequest) {
   try {
     await dbConnect();
     const body = await req.json();
-    const { 
-      fullName, mobile, email, password, role, 
-      designation, qualification, experience, state, district, 
+    const {
+      fullName, mobile, email, password, role,
+      designation, qualification, experience, state, district,
       block, area, pincode, address, assignedEmployeeId,
       age, maritalStatus, occupation, interests,
-      vendorCode, subVendorCode, campaignId
+      vendorCode, subVendorCode, campaignId, vendorType, membershipType
     } = body;
 
     if (!fullName || !mobile || !password || !email) {
@@ -48,23 +50,31 @@ export async function POST(req: NextRequest) {
     }
 
     // Hierarchy Logic
-    let parentVendorId = undefined;
+    const session = await getAuthSession();
+    let parentVendorId = body.parentVendorId || undefined;
     let referralSource: 'direct' | 'invite' = 'direct';
     let assignmentStatus: 'pending' | 'completed' = 'pending';
+
+    // Securely auto-assign the logged-in vendor's ID if they are creating an employee
+    if (session && ['vendor', 'sub_vendor', 'super_admin'].includes(session.role)) {
+      parentVendorId = session.id;
+      assignmentStatus = 'completed';
+      referralSource = 'invite';
+    }
 
     const effectiveVendorCode = vendorCode || body.vendor;
     const effectiveSubVendorCode = subVendorCode || body.subvendor;
     const effectiveEmployeeCode = assignedEmployeeId || body.employee;
 
-    if (effectiveVendorCode) {
+    if (!parentVendorId && effectiveVendorCode) {
       const vendor = await User.findOne({ vendorCode: effectiveVendorCode, role: 'vendor' });
       if (vendor) {
         parentVendorId = vendor._id;
         referralSource = 'invite';
         assignmentStatus = 'completed';
       }
-    } 
-    
+    }
+
     if (!parentVendorId && effectiveSubVendorCode) {
       const subVendor = await User.findOne({ subVendorCode: effectiveSubVendorCode, role: 'sub_vendor' });
       if (subVendor) {
@@ -72,16 +82,16 @@ export async function POST(req: NextRequest) {
         referralSource = 'invite';
         assignmentStatus = 'completed';
       }
-    } 
-    
+    }
+
     if (!parentVendorId && effectiveEmployeeCode) {
       const isObjectId = mongoose.Types.ObjectId.isValid(effectiveEmployeeCode);
-      const employee = await User.findOne({ 
+      const employee = await User.findOne({
         $or: [
-          { employeeId: effectiveEmployeeCode }, 
+          { employeeId: effectiveEmployeeCode },
           ...(isObjectId ? [{ _id: effectiveEmployeeCode as any }] : [])
-        ], 
-        role: 'employee' 
+        ],
+        role: 'employee'
       });
       if (employee) {
         parentVendorId = employee._id;
@@ -93,7 +103,7 @@ export async function POST(req: NextRequest) {
     const hashedPassword = await hashPassword(password);
     const userRole = role || 'member';
 
-    // OTP logic
+    // OTP logic (compulsory for all registrations)
     const rawOtp = generateOTP();
     const hashedOtp = hashOTP(rawOtp);
     const otpExpires = new Date(Date.now() + 15 * 60 * 1000); // 15 mins
@@ -131,15 +141,17 @@ export async function POST(req: NextRequest) {
       maritalStatus,
       occupation,
       interests,
-      assignedEmployeeId: assignedEmployeeId || undefined
+      assignedEmployeeId: assignedEmployeeId || undefined,
+      vendorType: vendorType || undefined,
+      membershipType: membershipType || 'free'
     };
 
     const pendingUser = await PendingUser.create(pendingData);
 
     // Send Email
     const emailRes = await sendEmail(
-      email, 
-      'Verify your SakhiHub account', 
+      email,
+      'Verify your SakhiHub account',
       getOTPTemplate(fullName, rawOtp, 'Registration')
     );
 

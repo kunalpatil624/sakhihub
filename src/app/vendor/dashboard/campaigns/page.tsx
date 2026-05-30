@@ -6,6 +6,7 @@ import { Target, Calendar, Plus, ExternalLink, Users, IndianRupee, BookOpen, Dow
 import axios from "axios";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
+import { toast } from 'sonner';
 
 export default function VendorCampaigns() {
   const [assigned, setAssigned] = useState<any[]>([]);
@@ -54,7 +55,7 @@ export default function VendorCampaigns() {
       }
     } catch (err) {
       console.error("Action failed", err);
-      alert("Failed to process request");
+      toast.error("Failed to process request");
     }
   };
 
@@ -154,7 +155,7 @@ export default function VendorCampaigns() {
                   className="flex flex-col gap-6"
                 >
                   <h3 className="text-2xl font-black text-secondary mb-2 flex items-center gap-3">
-                    <Users size={28} className="text-primary" /> Downline Requests
+                    <Users size={28} className="text-primary" /> Field Partner Requests
                   </h3>
                   <p className="text-gray-400 font-bold mb-6 text-sm">Approve or reject campaign requests from your Sub-Vendors and Employees.</p>
                   
@@ -236,10 +237,10 @@ function CampaignCard({ camp, type, onFetch }: { camp: any, type: string, onFetc
       if (res.data.success) {
         if (onFetch) onFetch();
       } else {
-        alert(res.data.message || 'Failed to request campaign');
+        toast.error(res.data.message || 'Failed to request campaign');
       }
     } catch (error: any) {
-      alert(error.response?.data?.message || 'Failed to request campaign');
+      toast.error(error.response?.data?.message || 'Failed to request campaign');
     } finally {
       setRequesting(false);
     }

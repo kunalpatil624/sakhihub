@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { useLanguage } from '@/context/LanguageContext';
 
 const CTABanner = () => {
-  const { t, language } = useLanguage();
+  const { t } = useLanguage();
 
   return (
     <section className="section-padding !pb-0 overflow-hidden mb-5">
@@ -28,11 +28,11 @@ const CTABanner = () => {
             transition={{ delay: 0.2 }}
             className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold leading-tight mb-8 relative z-10"
           >
-            {language === 'hi' ? (
-              <>आज ही जुड़ें और बदलाव का <span className="text-primary">हिस्सा बनें</span></>
-            ) : (
-              <>Join Today & <span className="text-primary">Be the Change</span></>
-            )}
+            {t('ctaBanner.title').split('&').map((part: string, idx: number) => (
+              <React.Fragment key={idx}>
+                {idx === 0 ? part : <span className="text-primary">& {part}</span>}
+              </React.Fragment>
+            ))}
           </motion.h2>
           <motion.p
             initial={{ opacity: 0, y: 20 }}
@@ -40,10 +40,7 @@ const CTABanner = () => {
             transition={{ delay: 0.3 }}
             className="text-base md:text-lg lg:text-xl opacity-90 max-w-3xl mx-auto mb-12 leading-relaxed font-medium relative z-10"
           >
-            {language === 'hi'
-              ? "आज ही साखीहब से जुड़ें और अपने समुदाय को सशक्त बनाएं। आपके द्वारा उठाया गया हर कदम भारत भर में महिलाओं के जीवन पर स्थायी प्रभाव डालता है।"
-              : "Join SakhiHub today and empower your community. Every step you take creates a lasting impact on women's lives across India. Join the movement now!"
-            }
+            {t('ctaBanner.desc')}
           </motion.p>
 
           <motion.div
@@ -53,11 +50,11 @@ const CTABanner = () => {
             className="flex flex-col sm:flex-row gap-4 md:gap-6 justify-center relative z-10"
           >
             <Link href="/register" className="btn-primary bg-white text-secondary py-5 px-10 text-base md:text-lg rounded-2xl flex items-center justify-center gap-2 shadow-xl hover:scale-105 transition-all">
-              {t('join_btn')} <ArrowRight size={20} />
+              {t('ctaBanner.joinBtn')} <ArrowRight size={20} />
             </Link>
             <Link href="/contact" className="btn-secondary border-white/20 text-white bg-white/5 backdrop-blur-sm py-5 px-10 text-base md:text-lg rounded-2xl flex items-center justify-center gap-2 hover:bg-white/10 transition-all">
               <Mail size={20} />
-              {language === 'hi' ? 'सहायता केंद्र' : 'Contact Support'}
+              {t('ctaBanner.contactBtn')}
             </Link>
           </motion.div>
         </motion.div>
@@ -67,4 +64,3 @@ const CTABanner = () => {
 };
 
 export default CTABanner;
-

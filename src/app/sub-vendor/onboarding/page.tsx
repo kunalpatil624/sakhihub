@@ -1,38 +1,86 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { 
-  ShieldCheck, CheckCircle2, Clock, LogOut, FileCheck, AlertCircle, Network
+import {
+  ShieldCheck, CheckCircle2, Clock, LogOut, AlertCircle, FileCheck,
+  UserCheck, CreditCard, Landmark, Upload, FileText, Network
 } from 'lucide-react';
 import axios from 'axios';
 import { useRouter } from 'next/navigation';
-import { REQUIRED_DOCS_BY_ROLE, getDocComplianceSummary } from '@/utils/documents';
+import { getDocComplianceSummary, getRequiredDocs, getDocumentViewUrl, getRequiredDocsForUser } from '@/utils/documents';
 import DocumentCard from '@/components/features/dashboard/DocumentCard';
 import { useDocumentFlow } from '@/hooks/useDocumentFlow';
-
-const steps = [
-  { id: 1, name: 'Registration', status: 'completed' },
-  { id: 2, name: 'Doc Verification', status: 'current' },
-  { id: 3, name: 'Hierarchy Mapping', status: 'upcoming' },
-  { id: 4, name: 'Dashboard Access', status: 'upcoming' },
-];
+import OnboardingStepper from '@/components/features/onboarding/OnboardingStepper';
+import { toast } from 'sonner';
 
 export default function SubVendorOnboarding() {
   const router = useRouter();
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [vendorType, setVendorType] = useState<string>('');
+  const [savingType, setSavingType] = useState(false);
+
+  // Form states
+  const [formData, setFormData] = useState({
+    aadhaarNumber: '',
+    panNumber: '',
+    accountHolderName: '',
+    ifscCode: '',
+    bankName: '',
+    branchName: '',
+    accountNumber: '',
+    confirmAccountNumber: ''
+  });
+  const [ifscLoading, setIfscLoading] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
+
+  useEffect(() => {
+    if (profile && !vendorType) {
+      setVendorType(profile.vendorType || 'individual');
+    }
+  }, [profile, vendorType]);
+
+  const handleUpdateVendorType = async (type: string) => {
+    setVendorType(type);
+    setSavingType(true);
+    try {
+      const res = await axios.put('/api/auth/me', { vendorType: type });
+      if (res.data.success) {
+        setProfile(res.data.data);
+        setIsInitialized(false); // force re-sync of forms
+      }
+    } catch (err) {
+      console.error(err);
+      // Revert on failure
+      setVendorType(profile?.vendorType || 'individual');
+    } finally {
+      setSavingType(false);
+    }
+  };
 
   const { uploading, uploadDocument } = useDocumentFlow({
-    onSuccess: async () => { await fetchProfile(); }
+    onSuccess: async () => {
+      setIsInitialized(false);
+      await fetchProfile();
+    }
   });
 
   const fetchProfile = async () => {
     try {
       const res = await axios.get('/api/auth/me');
       if (res.data.success) {
-        setProfile(res.data.data);
-        if (['active', 'approved'].includes(res.data.data.status) && res.data.data.dashboardAccess && res.data.data.assignmentStatus === 'completed') {
-          router.push('/sub-vendor/dashboard');
+        const user = res.data.data;
+        setProfile(user);
+
+        // Real-time Auto Redirect Logic
+        if (user.documentsVerified) {
+          if (!user.paymentCompleted) {
+            router.push('/payment-pending');
+          } else if (user.assignmentStatus !== 'completed') {
+            router.push('/pending-assignment');
+          } else if (user.dashboardAccess) {
+            router.push('/sub-vendor/dashboard');
+          }
         }
       }
     } catch (err) {
@@ -44,7 +92,25 @@ export default function SubVendorOnboarding() {
 
   useEffect(() => {
     fetchProfile();
+    const interval = setInterval(fetchProfile, 5000);
+    return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    if (profile && !isInitialized) {
+      setFormData({
+        aadhaarNumber: profile.aadhaarNumber || '',
+        panNumber: profile.panNumber || '',
+        accountHolderName: profile.bankDetails?.accountHolderName || '',
+        ifscCode: profile.bankDetails?.ifscCode || '',
+        bankName: profile.bankDetails?.bankName || '',
+        branchName: profile.bankDetails?.branchName || '',
+        accountNumber: profile.bankDetails?.accountNumber || '',
+        confirmAccountNumber: profile.bankDetails?.accountNumber || ''
+      });
+      setIsInitialized(true);
+    }
+  }, [profile, isInitialized]);
 
   const handleLogout = async () => {
     try {
@@ -55,14 +121,145 @@ export default function SubVendorOnboarding() {
     }
   };
 
+  const handleIfscChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const code = e.target.value.toUpperCase();
+    setFormData(prev => ({ ...prev, ifscCode: code }));
+
+    if (code.length === 11) {
+      setIfscLoading(true);
+      try {
+        const res = await axios.get(`/api/ifsc/${code}`);
+        setFormData(prev => ({ ...prev, bankName: res.data.BANK, branchName: res.data.BRANCH }));
+      } catch (err) {
+        setFormData(prev => ({ ...prev, bankName: '', branchName: '' }));
+      } finally {
+        setIfscLoading(false);
+      }
+    } else {
+      setFormData(prev => ({ ...prev, bankName: '', branchName: '' }));
+    }
+  };
+
+  const submitAadhaar = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!formData.aadhaarNumber || formData.aadhaarNumber.length < 12) {
+      toast.error("Please enter a valid 12-digit Aadhaar Number before uploading.");
+      e.target.value = '';
+      return;
+    }
+    await uploadDocument(file, aadhaarDocType, { aadhaarNumber: formData.aadhaarNumber });
+    e.target.value = '';
+  };
+
+  const submitAadhaarSplit = async (e: React.ChangeEvent<HTMLInputElement>, side: 'front' | 'back', type: string) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!formData.aadhaarNumber || formData.aadhaarNumber.length < 12) {
+      toast.error("Please enter a valid 12-digit Aadhaar Number before uploading.");
+      e.target.value = '';
+      return;
+    }
+    await uploadDocument(file, type, { aadhaarNumber: formData.aadhaarNumber });
+    e.target.value = '';
+  };
+
+  const submitPan = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!formData.panNumber || formData.panNumber.length !== 10) {
+      toast.error("Please enter a valid 10-character PAN Number before uploading.");
+      e.target.value = '';
+      return;
+    }
+    await uploadDocument(file, panDocType, { panNumber: formData.panNumber });
+    e.target.value = '';
+  };
+
+  const submitBank = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!formData.accountHolderName || !formData.ifscCode || !formData.accountNumber) {
+      toast.error("Please fill all bank details before uploading.");
+      e.target.value = '';
+      return;
+    }
+    if (formData.accountNumber !== formData.confirmAccountNumber) {
+      toast.error("Account numbers do not match.");
+      e.target.value = '';
+      return;
+    }
+    if (!formData.bankName) {
+      toast.error("Invalid IFSC code.");
+      e.target.value = '';
+      return;
+    }
+    await uploadDocument(file, 'bankPassbook', {
+      accountHolderName: formData.accountHolderName,
+      accountNumber: formData.accountNumber,
+      ifscCode: formData.ifscCode,
+      bankName: formData.bankName,
+      branchName: formData.branchName
+    });
+    e.target.value = '';
+  };
+
   if (loading) return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center">
       <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
     </div>
   );
 
-  const compliance = getDocComplianceSummary(profile?.documents, 'sub_vendor');
-  const docTypes = REQUIRED_DOCS_BY_ROLE.sub_vendor;
+  const activeVendorType = vendorType || profile?.vendorType || 'individual';
+  const compliance = getDocComplianceSummary(profile?.documents, 'sub_vendor', activeVendorType);
+  const docTypes = getRequiredDocsForUser('sub_vendor', profile?.documents, activeVendorType);
+
+  const aadhaarDocType = docTypes.find(d => ['aadhaarCard', 'directorAadhaarCard', 'aadhaarCardFront', 'aadhaarCardBack', 'directorAadhaarCardFront', 'directorAadhaarCardBack'].includes(d)) || 'aadhaarCard';
+  const panDocType = docTypes.find(d => ['panCard', 'companyPanCard', 'directorPanCard', 'ngoPanCard'].includes(d)) || 'panCard';
+  const bankDocType = 'bankPassbook';
+  const generalDocTypes = docTypes.filter(d =>
+    !['aadhaarCard', 'directorAadhaarCard', 'aadhaarCardFront', 'aadhaarCardBack', 'directorAadhaarCardFront', 'directorAadhaarCardBack'].includes(d) &&
+    d !== panDocType &&
+    d !== bankDocType
+  );
+
+  const renderUploadedDocState = (docInfo: any, reuploadInput?: React.ReactNode) => {
+    if (!docInfo?.url) return null;
+    return (
+      <div className="mt-4 flex flex-col gap-3 bg-white/70 p-3 rounded-2xl border border-gray-100">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full bg-green-100 text-green-600">Uploaded</span>
+              {docInfo.status === 'approved' && <span className="text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-full bg-green-100 text-green-600">Approved</span>}
+              {docInfo.status === 'rejected' && <span className="text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-full bg-red-100 text-red-600">Rejected</span>}
+            </div>
+            <p className="text-sm font-black text-secondary truncate">{docInfo.fileName}</p>
+            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1">
+              Uploaded {new Date(docInfo.uploadedAt).toLocaleString()}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 mt-2 pt-3 border-t border-gray-100">
+          <a href={getDocumentViewUrl(docInfo.url)} target="_blank" rel="noopener noreferrer" className="flex-1 text-center py-2.5 bg-gray-50 hover:bg-primary hover:text-white text-gray-600 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">
+            Preview
+          </a>
+          {docInfo.status !== 'approved' && reuploadInput && (
+            <div className="flex-1">
+              {reuploadInput}
+            </div>
+          )}
+        </div>
+
+        {docInfo?.remarks && ['rejected', 'reupload_required'].includes(docInfo.status) && (
+          <div className="p-3 bg-red-50 rounded-xl border border-red-100 text-[10px] text-red-600 font-bold">
+            <AlertCircle size={12} className="inline mr-1" /> {docInfo.remarks}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div className="min-h-screen bg-gray-50/50 pb-20">
@@ -82,98 +279,351 @@ export default function SubVendorOnboarding() {
       </header>
 
       <main className="container max-w-5xl mt-12 px-4">
-        <div className="flex justify-between mb-16 relative">
-          <div className="absolute top-[18px] left-0 w-full h-[2px] bg-gray-100 z-0"></div>
-          {steps.map((step) => (
-            <div key={step.id} className="relative z-10 flex flex-col items-center gap-3">
-              <div className={`w-10 h-10 rounded-full flex items-center justify-center text-xs font-black transition-all duration-500 ${
-                ['active', 'approved'].includes(profile?.status) && step.id <= 2 ? 'bg-green-500 text-white' :
-                step.id === 1 ? 'bg-green-500 text-white' :
-                step.id === 2 ? 'bg-primary text-white ring-8 ring-primary/10' :
-                profile?.assignmentStatus === 'completed' && step.id === 3 ? 'bg-green-500 text-white' :
-                'bg-white text-gray-300 border-2 border-gray-100'
-              }`}>
-                {step.id === 1 || (step.id === 2 && ['active', 'approved'].includes(profile?.status)) || (step.id === 3 && profile?.assignmentStatus === 'completed') ? <CheckCircle2 size={18} /> : step.id}
-              </div>
-              <span className={`text-[10px] font-black uppercase tracking-widest ${step.id === 2 ? 'text-primary' : 'text-gray-400'}`}>
-                {step.name}
-              </span>
-            </div>
-          ))}
-        </div>
+        {profile && <OnboardingStepper user={profile} />}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
           <div className="lg:col-span-2 space-y-8">
-            <section>
-              <h2 className="text-3xl font-black text-secondary mb-2">Compliance Verification</h2>
-              <p className="text-gray-400 font-bold uppercase tracking-widest text-[10px]">Please upload scans (PDF, JPG, PNG, WEBP) of the following mandatory documents</p>
+            <section className="bg-white p-8 rounded-[40px] border border-gray-100 shadow-soft">
+              <h3 className="text-xl font-black text-secondary mb-2">Select Vendor Entity Type</h3>
+              <p className="text-xs text-gray-400 font-bold uppercase tracking-widest mb-6">This determines which documents and KYC details are required for your organization.</p>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {[
+                  { id: 'individual', title: 'Individual Vendor', desc: 'Proprietor, freelancer, or single contractor' },
+                  { id: 'company', title: 'Company Vendor', desc: 'Private Limited, LLP, Partnership or Sole Proprietorship' },
+                  { id: 'ngo_trust', title: 'NGO / Trust Vendor', desc: 'Non-governmental organization, Society, or Trust' }
+                ].map(type => (
+                  <div
+                    key={type.id}
+                    onClick={() => handleUpdateVendorType(type.id)}
+                    className={`p-5 rounded-3xl border-2 transition-all cursor-pointer flex flex-col justify-between gap-2 ${vendorType === type.id ? 'border-primary bg-primary/5' : 'border-gray-100 bg-white hover:border-gray-200'}`}
+                  >
+                    <div>
+                      <h4 className="font-black text-secondary text-sm">{type.title}</h4>
+                      <p className="text-[10px] text-gray-400 font-medium leading-relaxed mt-1">{type.desc}</p>
+                    </div>
+                    {savingType && vendorType === type.id && (
+                      <span className="text-[9px] text-primary font-black uppercase tracking-widest mt-2">Saving...</span>
+                    )}
+                  </div>
+                ))}
+              </div>
             </section>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {docTypes.map((type) => (
-                <DocumentCard 
-                  key={type}
-                  type={type}
-                  docInfo={profile?.documents?.[type]}
-                  uploading={uploading === type}
-                  onUpload={(file) => uploadDocument(file, type)}
-                />
-              ))}
+            <section>
+              <h2 className="text-3xl font-black text-secondary mb-2">Compliance Verification</h2>
+              <p className="text-gray-400 font-bold uppercase tracking-widest text-[10px]">Please fill all details and upload valid document scans.</p>
+            </section>
+
+            <div className="space-y-6">
+              {/* Aadhaar Card Custom Box */}
+              {(docTypes.includes('aadhaarCard') || docTypes.includes('directorAadhaarCard') || docTypes.includes('aadhaarCardFront') || docTypes.includes('directorAadhaarCardFront')) && (() => {
+                const isSplit = docTypes.includes('aadhaarCardFront') || docTypes.includes('directorAadhaarCardFront');
+                const frontType = docTypes.includes('directorAadhaarCardFront') ? 'directorAadhaarCardFront' : 'aadhaarCardFront';
+                const backType = docTypes.includes('directorAadhaarCardBack') ? 'directorAadhaarCardBack' : 'aadhaarCardBack';
+                const activeAadhaarKey = isSplit ? frontType : aadhaarDocType;
+                const isApproved = isSplit
+                  ? (profile?.documents?.[frontType]?.status === 'approved' || profile?.documents?.[backType]?.status === 'approved')
+                  : profile?.documents?.[aadhaarDocType]?.status === 'approved';
+
+                return (
+                  <div className="bg-white p-6 md:p-8 rounded-[32px] border-2 border-gray-100 hover:border-primary/20 transition-all overflow-hidden shadow-sm">
+                    <div className="flex items-center gap-4 mb-6">
+                      <div className="w-12 h-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                        <UserCheck size={24} />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-black text-secondary">Aadhaar Card Verification</h3>
+                        <p className="text-[10px] text-primary font-black uppercase tracking-widest flex items-center gap-1.5"><FileText size={12} /> PDF, JPG, PNG</p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-6">
+                      <div>
+                        <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Aadhaar Number *</label>
+                        <input
+                          type="text" maxLength={12} placeholder="Enter 12-digit Aadhaar Number"
+                          className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold text-gray-800 focus:outline-none focus:border-primary focus:bg-white"
+                          value={formData.aadhaarNumber}
+                          onChange={(e) => setFormData({ ...formData, aadhaarNumber: e.target.value.replace(/\D/g, '') })}
+                          readOnly={isApproved}
+                        />
+                      </div>
+
+                      {isSplit ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="bg-gray-50 p-4 rounded-2xl border border-dashed border-gray-200">
+                            <p className="text-xs font-black text-secondary mb-3">Front Side</p>
+                            {profile?.documents?.[frontType]?.url ? (
+                              renderUploadedDocState(profile.documents[frontType], (
+                                <label className="block w-full text-center py-2.5 bg-amber-50 hover:bg-amber-100 text-amber-600 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer">
+                                  {uploading === frontType ? 'Uploading...' : 'Re-upload'}
+                                  <input type="file" className="hidden" accept=".pdf,.jpg,.png" disabled={uploading === frontType} onChange={(e) => submitAadhaarSplit(e, 'front', frontType)} />
+                                </label>
+                              ))
+                            ) : (
+                              <label className="w-full py-3 mt-2 bg-primary text-white rounded-xl flex justify-center items-center gap-2 font-black text-[10px] uppercase tracking-widest cursor-pointer shadow-lg shadow-primary/20 hover:bg-primary-dark">
+                                {uploading === frontType ? 'Uploading...' : <><Upload size={14} /> Upload Front</>}
+                                <input type="file" className="hidden" accept=".pdf,.jpg,.png" disabled={uploading === frontType} onChange={(e) => submitAadhaarSplit(e, 'front', frontType)} />
+                              </label>
+                            )}
+                          </div>
+                          <div className="bg-gray-50 p-4 rounded-2xl border border-dashed border-gray-200">
+                            <p className="text-xs font-black text-secondary mb-3">Back Side</p>
+                            {profile?.documents?.[backType]?.url ? (
+                              renderUploadedDocState(profile.documents[backType], (
+                                <label className="block w-full text-center py-2.5 bg-amber-50 hover:bg-amber-100 text-amber-600 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer">
+                                  {uploading === backType ? 'Uploading...' : 'Re-upload'}
+                                  <input type="file" className="hidden" accept=".pdf,.jpg,.png" disabled={uploading === backType} onChange={(e) => submitAadhaarSplit(e, 'back', backType)} />
+                                </label>
+                              ))
+                            ) : (
+                              <label className="w-full py-3 mt-2 bg-primary text-white rounded-xl flex justify-center items-center gap-2 font-black text-[10px] uppercase tracking-widest cursor-pointer shadow-lg shadow-primary/20 hover:bg-primary-dark">
+                                {uploading === backType ? 'Uploading...' : <><Upload size={14} /> Upload Back</>}
+                                <input type="file" className="hidden" accept=".pdf,.jpg,.png" disabled={uploading === backType} onChange={(e) => submitAadhaarSplit(e, 'back', backType)} />
+                              </label>
+                            )}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="bg-gray-50 p-4 rounded-2xl border border-dashed border-gray-200">
+                          <p className="text-xs font-black text-secondary mb-3">Aadhaar Document</p>
+                          {profile?.documents?.[aadhaarDocType]?.url ? (
+                            renderUploadedDocState(profile.documents[aadhaarDocType], (
+                              <label className="block w-full text-center py-2.5 bg-amber-50 hover:bg-amber-100 text-amber-600 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer">
+                                {uploading === aadhaarDocType ? 'Uploading...' : 'Re-upload'}
+                                <input type="file" className="hidden" accept=".pdf,.jpg,.png" disabled={uploading === aadhaarDocType} onChange={submitAadhaar} />
+                              </label>
+                            ))
+                          ) : (
+                            <label className="w-full py-3 mt-2 bg-primary text-white rounded-xl flex justify-center items-center gap-2 font-black text-[10px] uppercase tracking-widest cursor-pointer shadow-lg shadow-primary/20 hover:bg-primary-dark">
+                              {uploading === aadhaarDocType ? 'Uploading...' : <><Upload size={14} /> Upload Aadhaar</>}
+                              <input type="file" className="hidden" accept=".pdf,.jpg,.png" disabled={uploading === aadhaarDocType} onChange={submitAadhaar} />
+                            </label>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* PAN Card Custom Box */}
+              {docTypes.includes(panDocType) && (
+                <div className="bg-white p-6 md:p-8 rounded-[32px] border-2 border-gray-100 hover:border-primary/20 transition-all overflow-hidden shadow-sm">
+                  <div className="flex items-center gap-4 mb-6">
+                    <div className="w-12 h-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                      <CreditCard size={24} />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-black text-secondary">PAN Card Verification</h3>
+                      <p className="text-[10px] text-primary font-black uppercase tracking-widest flex items-center gap-1.5"><FileText size={12} /> PDF, JPG, PNG</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-6">
+                    <div>
+                      <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">PAN Number *</label>
+                      <input
+                        type="text" maxLength={10} placeholder="Enter 10-character PAN"
+                        className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold text-gray-800 uppercase focus:outline-none focus:border-primary focus:bg-white"
+                        value={formData.panNumber}
+                        onChange={(e) => setFormData({ ...formData, panNumber: e.target.value.toUpperCase() })}
+                        readOnly={profile?.documents?.[panDocType]?.status === 'approved'}
+                      />
+                    </div>
+
+                    <div className="bg-gray-50 p-4 rounded-2xl border border-dashed border-gray-200">
+                      <p className="text-xs font-black text-secondary mb-3">PAN Document</p>
+                      {profile?.documents?.[panDocType]?.url ? (
+                        renderUploadedDocState(profile.documents[panDocType], (
+                          <label className="block w-full text-center py-2.5 bg-amber-50 hover:bg-amber-100 text-amber-600 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer">
+                            {uploading === panDocType ? 'Uploading...' : 'Re-upload'}
+                            <input type="file" className="hidden" accept=".pdf,.jpg,.png" disabled={uploading === panDocType} onChange={submitPan} />
+                          </label>
+                        ))
+                      ) : (
+                        <label className="w-full py-3 mt-2 bg-primary text-white rounded-xl flex justify-center items-center gap-2 font-black text-[10px] uppercase tracking-widest cursor-pointer shadow-lg shadow-primary/20 hover:bg-primary-dark">
+                          {uploading === panDocType ? 'Uploading...' : <><Upload size={14} /> Upload PAN</>}
+                          <input type="file" className="hidden" accept=".pdf,.jpg,.png" disabled={uploading === panDocType} onChange={submitPan} />
+                        </label>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Bank Details Custom Box */}
+              {docTypes.includes(bankDocType) && (
+                <div className="bg-white p-6 md:p-8 rounded-[32px] border-2 border-gray-100 hover:border-primary/20 transition-all overflow-hidden shadow-sm">
+                  <div className="flex items-center gap-4 mb-6">
+                    <div className="w-12 h-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                      <Landmark size={24} />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-black text-secondary">Bank Details & Payout Info</h3>
+                      <p className="text-[10px] text-primary font-black uppercase tracking-widest flex items-center gap-1.5"><FileText size={12} /> Passbook or Cheque</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="md:col-span-2">
+                        <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Account Holder Name *</label>
+                        <input
+                          type="text" placeholder="Name exactly as per bank records"
+                          className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold text-gray-800 uppercase focus:outline-none focus:border-primary focus:bg-white"
+                          value={formData.accountHolderName}
+                          onChange={(e) => setFormData({ ...formData, accountHolderName: e.target.value.toUpperCase() })}
+                          readOnly={profile?.documents?.[bankDocType]?.status === 'approved'}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">IFSC Code *</label>
+                        <div className="relative">
+                          <input
+                            type="text" maxLength={11} placeholder="e.g. SBIN0001234"
+                            className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold text-gray-800 uppercase focus:outline-none focus:border-primary focus:bg-white"
+                            value={formData.ifscCode}
+                            onChange={handleIfscChange}
+                            readOnly={profile?.documents?.[bankDocType]?.status === 'approved'}
+                          />
+                          {ifscLoading && <div className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />}
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Bank & Branch</label>
+                        <div className="w-full bg-gray-100 border border-gray-200 rounded-xl px-4 py-3 min-h-[46px] flex flex-col justify-center">
+                          {formData.bankName ? (
+                            <>
+                              <span className="text-xs font-bold text-gray-800">{formData.bankName}</span>
+                              <span className="text-[9px] font-bold text-gray-500 uppercase">{formData.branchName}</span>
+                            </>
+                          ) : (
+                            <span className="text-xs font-bold text-gray-400">Auto-fetched via IFSC</span>
+                          )}
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Account Number *</label>
+                        <input
+                          type="text" placeholder="Enter Account Number"
+                          className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold text-gray-800 focus:outline-none focus:border-primary focus:bg-white"
+                          value={formData.accountNumber}
+                          onChange={(e) => setFormData({ ...formData, accountNumber: e.target.value.replace(/\D/g, '') })}
+                          readOnly={profile?.documents?.[bankDocType]?.status === 'approved'}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Confirm Account Number *</label>
+                        <input
+                          type="text" placeholder="Re-enter Account Number"
+                          className={`w-full bg-gray-50 border rounded-xl px-4 py-3 text-sm font-bold text-gray-800 focus:outline-none focus:bg-white ${formData.confirmAccountNumber && formData.accountNumber !== formData.confirmAccountNumber
+                            ? 'border-red-400 focus:border-red-500 focus:ring-red-500'
+                            : 'border-gray-200 focus:border-primary focus:ring-primary'
+                            }`}
+                          value={formData.confirmAccountNumber}
+                          onChange={(e) => setFormData({ ...formData, confirmAccountNumber: e.target.value.replace(/\D/g, '') })}
+                          readOnly={profile?.documents?.[bankDocType]?.status === 'approved'}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="bg-gray-50 p-4 rounded-2xl border border-dashed border-gray-200 mt-4">
+                      <p className="text-xs font-black text-secondary mb-3">Upload Passbook / Cheque</p>
+                      {profile?.documents?.[bankDocType]?.url ? (
+                        renderUploadedDocState(profile.documents[bankDocType], (
+                          <label className="block w-full text-center py-2.5 bg-amber-50 hover:bg-amber-100 text-amber-600 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer">
+                            {uploading === bankDocType ? 'Uploading...' : 'Re-upload'}
+                            <input type="file" className="hidden" accept=".pdf,.jpg,.png" disabled={uploading === bankDocType} onChange={submitBank} />
+                          </label>
+                        ))
+                      ) : (
+                        <label className="w-full py-3 mt-2 bg-primary text-white rounded-xl flex justify-center items-center gap-2 font-black text-[10px] uppercase tracking-widest cursor-pointer shadow-lg shadow-primary/20 hover:bg-primary-dark">
+                          {uploading === bankDocType ? 'Uploading...' : <><Upload size={14} /> Upload Document</>}
+                          <input type="file" className="hidden" accept=".pdf,.jpg,.png" disabled={uploading === bankDocType} onChange={submitBank} />
+                        </label>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* General / Other Documents Section */}
+              {generalDocTypes.length > 0 && (
+                <div className="space-y-6">
+                  <section>
+                    <h3 className="text-xl font-black text-secondary mb-2">Other Required Certificates</h3>
+                    <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Please upload other registration and business setup documents</p>
+                  </section>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {generalDocTypes.map((type) => (
+                      <DocumentCard
+                        key={type}
+                        type={type}
+                        docInfo={profile?.documents?.[type]}
+                        uploading={uploading === type}
+                        onUpload={(file) => uploadDocument(file, type)}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
           <div className="space-y-8">
             <div className="bg-secondary-dark p-10 rounded-[40px] text-white shadow-2xl relative overflow-hidden">
-               <div className="absolute top-[-50px] right-[-50px] w-40 h-40 bg-primary/20 rounded-full blur-3xl"></div>
-               <h4 className="text-2xl font-black mb-6 relative z-10">Onboarding Status</h4>
-               
-               <div className="space-y-6 relative z-10">
-                 <div className="flex items-center gap-4">
-                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${['active', 'approved'].includes(profile?.status) ? 'bg-green-500' : profile?.status === 'pending' ? 'bg-white/10' : 'bg-amber-500'}`}>
-                      <ShieldCheck size={24} />
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Step 1: Verification</p>
-                      <p className="font-bold text-sm">
-                        {['active', 'approved'].includes(profile?.status) ? 'Docs Verified' : 
-                         profile?.status === 'reupload_required' ? 'Action Required' :
-                         'In Progress'}
-                      </p>
-                    </div>
-                 </div>
+              <div className="absolute top-[-50px] right-[-50px] w-40 h-40 bg-primary/20 rounded-full blur-3xl"></div>
+              <h4 className="text-2xl font-black mb-6 relative z-10">Onboarding Status</h4>
 
-                 <div className="flex items-center gap-4">
-                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${profile?.assignmentStatus === 'completed' ? 'bg-green-500' : 'bg-white/10'}`}>
-                      <Network size={24} />
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Step 2: Mapping</p>
-                      <p className="font-bold text-sm">
-                        {profile?.assignmentStatus === 'completed' ? 'Hierarchy Set' : 'Awaiting Admin'}
-                      </p>
-                    </div>
-                 </div>
+              <div className="space-y-6 relative z-10">
+                <div className="flex items-center gap-4">
+                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${['active', 'approved'].includes(profile?.status) ? 'bg-green-500' : profile?.status === 'pending' ? 'bg-white/10' : 'bg-amber-500'}`}>
+                    <ShieldCheck size={24} />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Step 1: Verification</p>
+                    <p className="font-bold text-sm">
+                      {['active', 'approved'].includes(profile?.status) ? 'Docs Verified' :
+                        profile?.status === 'reupload_required' ? 'Action Required' :
+                          'In Progress'}
+                    </p>
+                  </div>
+                </div>
 
-                 <div className="flex items-center gap-4">
-                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${profile?.dashboardAccess && profile?.assignmentStatus === 'completed' ? 'bg-green-500' : 'bg-white/10'}`}>
-                      <CheckCircle2 size={24} />
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Step 3: Access</p>
-                      <p className="font-bold text-sm">{profile?.dashboardAccess && profile?.assignmentStatus === 'completed' ? 'Dashboard Open' : 'Locked'}</p>
-                    </div>
-                 </div>
-               </div>
+                <div className="flex items-center gap-4">
+                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${profile?.assignmentStatus === 'completed' ? 'bg-green-500' : 'bg-white/10'}`}>
+                    <Network size={24} />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Step 2: Mapping</p>
+                    <p className="font-bold text-sm">
+                      {profile?.assignmentStatus === 'completed' ? 'Hierarchy Set' : 'Awaiting Admin'}
+                    </p>
+                  </div>
+                </div>
 
-               <div className="mt-12 pt-8 border-t border-white/10 relative z-10 text-center">
-                 <p className="text-white/60 text-[10px] font-bold uppercase tracking-widest leading-relaxed">
-                    {profile?.status === 'active' && !profile?.dashboardAccess ? 
-                      'Compliance verified! Waiting for final hierarchy assignment and parent vendor mapping to unlock your dashboard.' :
-                     profile?.status === 'approved' ? 
+                <div className="flex items-center gap-4">
+                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${profile?.dashboardAccess && profile?.assignmentStatus === 'completed' ? 'bg-green-500' : 'bg-white/10'}`}>
+                    <CheckCircle2 size={24} />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Step 3: Access</p>
+                    <p className="font-bold text-sm">{profile?.dashboardAccess && profile?.assignmentStatus === 'completed' ? 'Dashboard Open' : 'Locked'}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-12 pt-8 border-t border-white/10 relative z-10 text-center">
+                <p className="text-white/60 text-[10px] font-bold uppercase tracking-widest leading-relaxed">
+                  {profile?.status === 'active' && !profile?.dashboardAccess ?
+                    'Compliance verified! Waiting for final hierarchy assignment and parent vendor mapping to unlock your dashboard.' :
+                    profile?.status === 'approved' ?
                       'Compliance verified! Please wait for final manual activation and hierarchy mapping by our administrator.' :
                       'Once all documents are uploaded, our compliance team will verify your organization within 24-48 business hours.'}
-                 </p>
-               </div>
+                </p>
+              </div>
             </div>
 
             <div className="bg-white p-8 rounded-[40px] border border-gray-100">

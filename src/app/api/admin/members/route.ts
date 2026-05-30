@@ -19,16 +19,56 @@ export async function GET(req: NextRequest) {
     const search = searchParams.get('search');
     const vendorCode = searchParams.get('vendorCode');
     const subVendorCode = searchParams.get('subVendorCode');
+    const dateRange = searchParams.get('dateRange'); // 'all', 'today', 'yesterday', 'custom'
+    const customDate = searchParams.get('customDate'); // 'YYYY-MM-DD'
+    const paymentStatus = searchParams.get('paymentStatus'); // 'all', 'paid', 'unpaid'
     
-    const query: any = {};
+    const query: any = {
+      accountStatus: { $ne: 'inactive' }
+    };
     if (vendorCode) query.vendorCode = vendorCode;
     if (subVendorCode) query.subVendorCode = subVendorCode;
+
+    // Date Filtering
+    if (dateRange && dateRange !== 'all') {
+      const now = new Date();
+      const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const startOfYesterday = new Date(startOfToday);
+      startOfYesterday.setDate(startOfYesterday.getDate() - 1);
+      
+      if (dateRange === 'today') {
+        query.createdAt = { $gte: startOfToday };
+      } else if (dateRange === 'yesterday') {
+        query.createdAt = { $gte: startOfYesterday, $lt: startOfToday };
+      } else if (dateRange === 'custom' && customDate) {
+        const customStart = new Date(customDate);
+        customStart.setHours(0, 0, 0, 0);
+        const customEnd = new Date(customDate);
+        customEnd.setHours(23, 59, 59, 999);
+        query.createdAt = { $gte: customStart, $lte: customEnd };
+      }
+    }
+    
+    // Payment Filtering
+    if (paymentStatus && paymentStatus !== 'all') {
+      if (paymentStatus === 'paid') {
+        query.membershipStatus = 'paid';
+      } else if (paymentStatus === 'unpaid') {
+        query.membershipStatus = { $ne: 'paid' };
+      }
+    }
     
     if (search) {
-      query.$or = [
-        { name: { $regex: search, $options: 'i' } },
-        { mobile: { $regex: search, $options: 'i' } },
-        { village: { $regex: search, $options: 'i' } }
+      // Combine query for safe search
+      query.$and = [
+        { accountStatus: { $ne: 'inactive' } },
+        {
+          $or: [
+            { name: { $regex: search, $options: 'i' } },
+            { mobile: { $regex: search, $options: 'i' } },
+            { village: { $regex: search, $options: 'i' } }
+          ]
+        }
       ];
     }
 
@@ -37,7 +77,7 @@ export async function GET(req: NextRequest) {
       .populate('assignedEmployeeId', 'fullName mobile employeeId')
       .populate({
         path: 'userId',
-        select: 'parentVendorId parentEmployeeCode parentVendorCode parentSubVendorCode',
+        select: 'status parentVendorId parentEmployeeCode parentVendorCode parentSubVendorCode',
         populate: {
           path: 'parentVendorId',
           select: 'fullName mobile employeeId'
@@ -66,7 +106,7 @@ export async function GET(req: NextRequest) {
           assignedEmployeeId: employee, // Unified employee object for UI
           paymentStatus: member.membershipStatus === 'paid' ? 'Paid' : 'Pending',
           membershipId: membership?.membershipId || 'N/A',
-          accountStatus: member.accountStatus,
+          accountStatus: (member.userId as any)?.status || member.accountStatus || 'active',
           connectionStatus: member.connectionStatus
         });
       }
@@ -93,7 +133,9 @@ export async function PATCH(req: NextRequest) {
     await dbConnect();
     
     const updateData: any = {};
-    if (accountStatus) updateData.accountStatus = accountStatus;
+    if (accountStatus) {
+      updateData.accountStatus = accountStatus === 'active' ? 'active' : 'inactive';
+    }
     if (connectionStatus) updateData.connectionStatus = connectionStatus;
     
     if (assignedEmployeeId) {

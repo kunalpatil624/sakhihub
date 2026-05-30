@@ -32,6 +32,8 @@ export interface IPendingUser extends Document {
   occupation?: string;
   interests?: string[];
   assignedEmployeeId?: string;
+  vendorType?: 'individual' | 'company' | 'ngo_trust';
+  membershipType?: 'paid' | 'free';
   createdAt: Date;
 }
 
@@ -42,6 +44,7 @@ const PendingUserSchema: Schema = new Schema(
     email: { type: String, required: true },
     password: { type: String },
     role: { type: String, required: true },
+    vendorType: { type: String, enum: ['individual', 'company', 'ngo_trust'] },
     designation: { type: String },
     qualification: { type: String },
     experience: { type: String },
@@ -66,6 +69,7 @@ const PendingUserSchema: Schema = new Schema(
     occupation: { type: String },
     interests: [{ type: String }],
     assignedEmployeeId: { type: String },
+    membershipType: { type: String, enum: ['paid', 'free'], default: 'free' },
   },
   { timestamps: { createdAt: true, updatedAt: false } }
 );

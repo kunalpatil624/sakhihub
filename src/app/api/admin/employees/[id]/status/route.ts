@@ -3,6 +3,7 @@ import dbConnect from '@/lib/mongodb';
 import { getAuthSession } from '@/lib/auth';
 import { errorResponse, successResponse } from '@/utils/response';
 import User from '@/models/User';
+import Document from '@/models/Document';
 import { 
   REQUIRED_DOCS_BY_ROLE, 
   determineUserStatus,
@@ -39,22 +40,26 @@ export async function PATCH(
       if (status === 'active') {
         updateData.isVerified = true;
         
-        // STRICT ACCESS RULE: Sub-vendors and Employees require BOTH document approval AND hierarchy assignment
+        // STRICT ACCESS RULE: Sub-vendors and Employees require BOTH document approval AND hierarchy assignment AND payment completion
         if (['sub_vendor', 'employee'].includes(userToUpdate.role)) {
            // Check actual documentsVerified flag or re-verify
            const allDocsOk = areAllDocsApproved(userToUpdate);
-            if (allDocsOk && userToUpdate.assignmentStatus === 'completed' && userToUpdate.parentVendorId) {
+            if (allDocsOk && userToUpdate.paymentCompleted && userToUpdate.assignmentStatus === 'completed' && userToUpdate.parentVendorId) {
               updateData.dashboardAccess = true;
               updateData.documentsVerified = true;
               updateData.onboardingCompleted = true;
             } else {
-              // Mark as active but keep dashboard blocked until BOTH conditions are met
+              // Mark as active but keep dashboard blocked until ALL conditions are met
               updateData.dashboardAccess = false;
               updateData.documentsVerified = allDocsOk;
               updateData.onboardingCompleted = false;
             }
+        } else if (userToUpdate.role === 'vendor') {
+           // Vendors get immediate access on activation ONLY if payment is completed
+           updateData.dashboardAccess = userToUpdate.paymentCompleted;
+           updateData.documentsVerified = true;
         } else {
-           // Vendors and other roles get immediate access on activation
+           // Members get immediate access
            updateData.dashboardAccess = true;
            updateData.documentsVerified = true;
         }
@@ -79,7 +84,7 @@ export async function PATCH(
       if (parts.length !== 3) return errorResponse('Invalid document status format', 400);
       
       const [, docType, docStatus] = parts;
-      const validDocStatuses = ['approved', 'rejected', 'reupload_required'];
+      const validDocStatuses = ['approved', 'rejected', 'reupload_required', 'exception_approved', 'on_hold'];
       
       if (!validDocStatuses.includes(docStatus)) {
         return errorResponse(`Invalid document status: ${docStatus}`, 400);
@@ -91,13 +96,25 @@ export async function PATCH(
       if (!user.documents) user.documents = {};
       const doc = (user.documents as any)[docType];
       
-      if (!doc || !doc.url) return errorResponse('Document not uploaded yet — cannot review', 404);
+      // Allow review even if url is empty for exception requests
+      if (!doc || (!doc.url && doc.status !== 'exception_requested' && doc.status !== 'on_hold' && doc.status !== 'exception_responded')) {
+        return errorResponse('Document not uploaded yet — cannot review', 404);
+      }
 
       // Update doc metadata
       doc.status = docStatus;
       doc.reviewedAt = new Date();
-      if (remarks) doc.remarks = remarks;
-      if (docStatus === 'approved') doc.remarks = ''; // Clear remarks on approval
+      if (remarks) {
+        if (['on_hold', 'exception_approved', 'reupload_required'].includes(docStatus)) {
+          doc.exceptionAdminRemarks = remarks;
+        } else {
+          doc.remarks = remarks;
+        }
+      }
+      if (docStatus === 'approved' || docStatus === 'exception_approved') {
+        doc.remarks = ''; 
+        doc.exceptionAdminRemarks = '';
+      }
 
       // Auto-determine overall user status based on all doc statuses via Service
       user.status = determineUserStatus(user);
@@ -106,15 +123,42 @@ export async function PATCH(
       user.documentsVerified = areAllDocsApproved(user);
 
       // DUAL-GATE ACCESS LOGIC:
-      // If all docs are approved AND hierarchy is already set (e.g. via referral),
+      // If all docs are approved AND payment is completed AND (hierarchy is already set or role is vendor),
       // we can automatically unlock dashboard access.
-      if (user.documentsVerified && user.assignmentStatus === 'completed' && ['active', 'approved', 'documents_uploaded'].includes(user.status)) {
+      
+      // Strict Activation for Employees
+      if (user.role === 'employee') {
+         if (user.documentsVerified) {
+            user.status = 'active';
+            user.isVerified = true;
+         } else {
+            user.status = 'pending';
+            user.isVerified = false;
+            user.dashboardAccess = false;
+         }
+      }
+
+      if (user.documentsVerified && user.paymentCompleted && (user.role === 'vendor' || user.assignmentStatus === 'completed') && ['active', 'approved', 'documents_uploaded'].includes(user.status)) {
          user.dashboardAccess = true;
          user.onboardingCompleted = true;
       }
       
       user.markModified('documents');
       await user.save();
+
+      // Sync to Document collection in MongoDB
+      await Document.findOneAndUpdate(
+        { userId: user._id, documentType: docType },
+        { 
+          status: docStatus,
+          verificationStatus: docStatus,
+          reviewedAt: new Date(),
+          adminRemarks: (docStatus === 'approved' || docStatus === 'exception_approved') ? '' : (remarks || ''),
+          isApproved: docStatus === 'approved' || docStatus === 'exception_approved',
+          isLocked: docStatus === 'approved' || docStatus === 'exception_approved'
+        },
+        { upsert: true }
+      );
 
       return successResponse(user, `Document ${docType} status updated to ${docStatus}`);
     }

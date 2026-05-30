@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Menu, X, Phone, Globe, ChevronDown, Activity, Users, BookOpen, Briefcase, Target, Eye, Users2, Mail } from 'lucide-react';
+import { Menu, X, Globe, ChevronDown, Activity, Users, BookOpen, Briefcase, Target, Eye, Users2, Mail, User } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useLanguage } from '@/context/LanguageContext';
 import styles from './Navbar.module.css';
@@ -13,9 +13,33 @@ const Navbar = () => {
   const [scrolled, setScrolled] = useState(false);
   const [langOpen, setLangOpen] = useState(false);
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
+  const [user, setUser] = useState<any>(null);
 
   const pathname = usePathname();
   const { language, setLanguage, t } = useLanguage();
+
+  useEffect(() => {
+    const fetchSession = async () => {
+      try {
+        const { default: axios } = await import('axios');
+        const res = await axios.get('/api/auth/me');
+        if (res.data.success) {
+          setUser(res.data.data);
+        }
+      } catch (e) {
+        // Not logged in
+      }
+    };
+    fetchSession();
+  }, []);
+
+  const getDashboardLink = (role: string) => {
+    if (role === 'super_admin') return '/admin/dashboard';
+    if (role === 'employee') return '/employee/dashboard';
+    if (role === 'vendor') return '/vendor/dashboard';
+    if (role === 'sub_vendor') return '/sub-vendor/dashboard';
+    return '/member/dashboard';
+  };
 
   useEffect(() => {
     const handleScroll = () => {
@@ -32,33 +56,38 @@ const Navbar = () => {
     { code: 'bn', name: 'বাংলা' },
     { code: 'ta', name: 'தமிழ்' },
     { code: 'te', name: 'తెలుగు' },
+    { code: 'gu', name: 'ગુજરાતી' },
+    { code: 'kn', name: 'ಕನ್ನಡ' },
+    { code: 'ml', name: 'മലയാളം' },
+    { code: 'pa', name: 'ਪੰਜਾਬੀ' },
+    { code: 'or', name: 'ଓଡ଼ିଆ' },
   ];
 
   const navLinks = [
-    { name: t('Home'), href: '/' },
+    { name: t('nav.home'), href: '/' },
     {
-      name: t('about_us'),
+      name: t('nav.aboutUs'),
       href: '/about',
       subLinks: [
-        { name: 'Vision', href: '/vision', icon: Eye },
-        { name: 'Mission', href: '/mission', icon: Target },
-        // { name: 'Our Team', href: '/team', icon: Users2 },
+        { name: t('nav.vision'), href: '/vision', icon: Eye },
+        { name: t('nav.mission'), href: '/mission', icon: Target },
       ]
     },
     {
-      name: t('programs'),
+      name: t('nav.programs'),
       href: '/programs',
       subLinks: [
-        { name: 'Health & Hygiene', href: '/programs/health', icon: Activity },
-        { name: 'Employment', href: '/programs/employment', icon: Briefcase },
-        { name: 'Education', href: '/programs/education', icon: BookOpen },
-        { name: 'Community', href: '/programs/community', icon: Users },
+        { name: t('nav.healthHygiene'), href: '/programs/health', icon: Activity },
+        { name: t('nav.employment'), href: '/programs/employment', icon: Briefcase },
+        { name: t('nav.education'), href: '/programs/education', icon: BookOpen },
+        { name: t('nav.community'), href: '/programs/community', icon: Users },
       ]
     },
-    { name: t('Projects') || 'Projects', href: '/projects' },
-    { name: t('campaign'), href: '/campaign' },
-    { name: t('Products'), href: '/products' },
-    { name: t('contact'), href: '/contact' },
+    { name: t('nav.projects'), href: '/projects' },
+    { name: t('nav.careers'), href: '/careers' },
+    // { name: 'Campaign', href: '/campaign' },
+    { name: t('nav.products'), href: '/products' },
+    { name: t('nav.contact'), href: '/contact' },
   ];
 
   return (
@@ -150,7 +179,6 @@ const Navbar = () => {
       </div>
 
       <div className={`${styles.actions} gap-2 md:gap-[15px]`}>
-        {/* Language Selector */}
         <div className="relative">
           <button
             className="btn-secondary !p-2 md:!px-3 md:!py-2 flex items-center gap-1.5 border border-gray-100 rounded-xl"
@@ -167,7 +195,7 @@ const Navbar = () => {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 10 }}
-                className="absolute top-full right-0 mt-2 bg-white rounded-xl shadow-xl overflow-hidden z-[100] w-[140px] border border-gray-100"
+                className="absolute top-full right-0 mt-2 bg-white rounded-xl shadow-xl z-[100] w-[140px] border border-gray-100 max-h-[300px] overflow-y-auto overflow-x-hidden"
               >
                 {languages.map((l) => (
                   <button
@@ -186,36 +214,45 @@ const Navbar = () => {
           </AnimatePresence>
         </div>
 
-        {/* Member Portal Dropdown */}
-        <div
-          className={`${styles.portalWrapper}`}
-          onMouseEnter={() => setActiveDropdown('portal')}
-          onMouseLeave={() => setActiveDropdown(null)}
-        >
-          <button className="btn-primary !p-2 md:!px-5 md:!py-2.5 !rounded-xl md:!rounded-full flex items-center gap-2">
-            <Users2 size={18} />
-            <span className={`${styles.portalText} hidden lg:block text-xs font-bold`}>Member Portal</span>
-            <ChevronDown size={14} className={`${styles.portalChevron} hidden lg:block transition-transform duration-300 ${activeDropdown === 'portal' ? 'rotate-180' : ''}`} />
-          </button>
+        {user ? (
+          <Link
+            href={getDashboardLink(user.role)}
+            className="btn-primary !p-2 md:!px-5 md:!py-2.5 !rounded-xl md:!rounded-full flex items-center gap-2 no-underline text-white font-bold"
+          >
+            <User size={18} />
+            <span className="text-xs font-bold">{t('nav.dashboard', 'Dashboard')} ({user.fullName?.split(' ')[0]})</span>
+          </Link>
+        ) : (
+          <div
+            className={`${styles.portalWrapper}`}
+            onMouseEnter={() => setActiveDropdown('portal')}
+            onMouseLeave={() => setActiveDropdown(null)}
+          >
+            <button className="btn-primary !p-2 md:!px-5 md:!py-2.5 !rounded-xl md:!rounded-full flex items-center gap-2">
+              <Users2 size={18} />
+              <span className={`${styles.portalText} hidden lg:block text-xs font-bold`}>{t('nav.memberPortal')}</span>
+              <ChevronDown size={14} className={`${styles.portalChevron} hidden lg:block transition-transform duration-300 ${activeDropdown === 'portal' ? 'rotate-180' : ''}`} />
+            </button>
 
-          <AnimatePresence>
-            {activeDropdown === 'portal' && (
-              <motion.div
-                initial={{ opacity: 0, y: 15 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 15 }}
-                className={styles.portalDropdown}
-              >
-                <Link href="/login" className="flex items-center gap-3 p-3 rounded-xl text-secondary hover:bg-primary/5 transition-colors no-underline font-bold text-xs">
-                  <Briefcase size={16} className="text-primary" /> {t('login')}
-                </Link>
-                <Link href="/register" className="flex items-center gap-3 p-3 rounded-xl text-secondary hover:bg-primary/5 transition-colors no-underline font-bold text-xs">
-                  <Users size={16} className="text-primary" /> {t('join_btn')}
-                </Link>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
+            <AnimatePresence>
+              {activeDropdown === 'portal' && (
+                <motion.div
+                  initial={{ opacity: 0, y: 15 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 15 }}
+                  className={styles.portalDropdown}
+                >
+                  <Link href="/login" className="flex items-center gap-3 p-3 rounded-xl text-secondary hover:bg-primary/5 transition-colors no-underline font-bold text-xs">
+                    <Briefcase size={16} className="text-primary" /> {t('nav.employeeLogin')}
+                  </Link>
+                  <Link href="/register" className="flex items-center gap-3 p-3 rounded-xl text-secondary hover:bg-primary/5 transition-colors no-underline font-bold text-xs">
+                    <Users size={16} className="text-primary" /> {t('nav.joinMovement')}
+                  </Link>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        )}
 
         <button className={`${styles.mobileMenuBtn} flex lg:hidden`} onClick={() => setIsOpen(!isOpen)} style={{ zIndex: 101 }}>
           {isOpen ? <X size={24} /> : <Menu size={24} />}
@@ -258,12 +295,15 @@ const Navbar = () => {
               </div>
             ))}
             <div style={{ marginTop: '20px', display: 'flex', flexDirection: 'column', gap: '15px' }}>
-              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Select Language</p>
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">{t('nav.selectLanguage') || 'Select Language'}</p>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
                 {languages.map(l => (
                   <button
                     key={l.code}
-                    onClick={() => setLanguage(l.code as any)}
+                    onClick={() => {
+                      setLanguage(l.code as any);
+                      setIsOpen(false);
+                    }}
                     style={{
                       padding: '12px 8px',
                       borderRadius: '12px',
@@ -279,24 +319,35 @@ const Navbar = () => {
                 ))}
               </div>
               <div className="h-px bg-gray-100 my-2"></div>
-              <div className="grid grid-cols-2 gap-2 md:gap-3">
+              {user ? (
                 <Link
-                  href="/login"
-                  className="btn-secondary py-3 px-2"
+                  href={getDashboardLink(user.role)}
+                  className="btn-primary py-3 px-2 w-full text-center no-underline text-white font-bold"
                   style={{ justifyContent: 'center', fontSize: '0.85rem', borderRadius: '12px' }}
                   onClick={() => setIsOpen(false)}
                 >
-                  {t('login')}
+                  {t('nav.dashboard', 'Dashboard')} ({user.fullName?.split(' ')[0]})
                 </Link>
-                <Link
-                  href="/register"
-                  className="btn-primary py-3 px-2"
-                  style={{ justifyContent: 'center', fontSize: '0.85rem', borderRadius: '12px' }}
-                  onClick={() => setIsOpen(false)}
-                >
-                  {t('join_btn')}
-                </Link>
-              </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-2 md:gap-3">
+                  <Link
+                    href="/login"
+                    className="btn-secondary py-3 px-2 text-center"
+                    style={{ justifyContent: 'center', fontSize: '0.85rem', borderRadius: '12px' }}
+                    onClick={() => setIsOpen(false)}
+                  >
+                    {t('nav.employeeLogin')}
+                  </Link>
+                  <Link
+                    href="/register"
+                    className="btn-primary py-3 px-2 text-center"
+                    style={{ justifyContent: 'center', fontSize: '0.85rem', borderRadius: '12px' }}
+                    onClick={() => setIsOpen(false)}
+                  >
+                    {t('nav.joinMovement')}
+                  </Link>
+                </div>
+              )}
               <a
                 href="mailto:info@sakhihub.com"
                 className="btn-primary py-3 px-4"
@@ -309,7 +360,7 @@ const Navbar = () => {
                 }}
               >
                 <Mail size={16} />
-                <span>Email Us</span>
+                <span>{t('nav.emailUs') || 'Email Us'}</span>
               </a>
             </div>
           </motion.div>
@@ -320,4 +371,3 @@ const Navbar = () => {
 };
 
 export default Navbar;
-

@@ -5,43 +5,41 @@ import { motion } from 'framer-motion';
 import { Users, Briefcase, Truck, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 import styles from './JoinMovement.module.css';
-
-const joinOptions = [
-  {
-    title: 'Join Campaign',
-    hindi: 'अभियान से जुड़ें',
-    desc: 'Become a volunteer and help us spread health awareness in your village.',
-    link: '/campaign',
-    icon: <Users size={32} />,
-    color: 'var(--primary)'
-  },
-  {
-    title: 'Join as Employee',
-    hindi: 'नौकरी के लिए आवेदन करें',
-    desc: 'Apply for Block Level Employee or District Coordinator roles.',
-    link: '/hiring',
-    icon: <Briefcase size={32} />,
-    color: 'var(--secondary)'
-  },
-  {
-    title: 'Delivery Partner',
-    hindi: 'वितरण भागीदार बनें',
-    desc: 'Manage product delivery in your Tehsil/Block and earn a steady income.',
-    link: '/delivery-partner',
-    icon: <Truck size={32} />,
-    color: 'var(--primary)'
-  }
-];
-
 import PosterGenerator from '@/components/ui/PosterGenerator';
+import { useLanguage } from '@/context/LanguageContext';
 
 const JoinMovement = () => {
+  const { t } = useLanguage();
+
+  const joinOptions = [
+    {
+      title: t('joinMovement.campTitle'),
+      desc: t('joinMovement.campDesc'),
+      link: '/campaign',
+      icon: <Users size={32} />,
+      color: 'var(--primary)'
+    },
+    {
+      title: t('joinMovement.empTitle'),
+      desc: t('joinMovement.empDesc'),
+      link: '/hiring',
+      icon: <Briefcase size={32} />,
+      color: 'var(--secondary)'
+    },
+    {
+      title: t('joinMovement.delTitle'),
+      desc: t('joinMovement.delDesc'),
+      link: '/delivery-partner',
+      icon: <Truck size={32} />,
+      color: 'var(--primary)'
+    }
+  ];
   return (
     <section className="section-padding">
       <div className="container">
         <div className="section-title">
-          <span>Join the Movement</span>
-          <h2>बदलाव का <span className="text-gradient">हिस्सा बनें</span></h2>
+          <span>{t('joinMovement.title')}</span>
+          <h2>{t('joinMovement.beThe')} <span className="text-gradient">{t('joinMovement.change')}</span></h2>
         </div>
 
         <div className={styles.grid}>
@@ -56,11 +54,10 @@ const JoinMovement = () => {
               style={{ '--accent-color': item.color } as any}
             >
               <div className={styles.iconWrapper}>{item.icon}</div>
-              <h4 className="hindi">{item.hindi}</h4>
               <h3>{item.title}</h3>
               <p>{item.desc}</p>
               <Link href={item.link} className={styles.link}>
-                Get Started <ArrowRight size={18} />
+                {t('joinMovement.getStarted')} <ArrowRight size={18} />
               </Link>
             </motion.div>
           ))}
@@ -75,4 +72,3 @@ const JoinMovement = () => {
 };
 
 export default JoinMovement;
-

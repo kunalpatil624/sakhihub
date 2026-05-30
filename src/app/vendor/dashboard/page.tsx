@@ -4,12 +4,14 @@ import React, { useState, useEffect } from "react";
 import DashboardLayout from "@/components/features/dashboard/DashboardLayout";
 import {
   Target, Users, Briefcase, User, IndianRupee,
-  ClipboardList, TrendingUp, ShieldCheck, CheckCircle, Clock
+  ClipboardList, TrendingUp, ShieldCheck, CheckCircle, Clock, FileText, ExternalLink
 } from "lucide-react";
 import axios from "axios";
 import { motion } from "framer-motion";
 import RegisterPartnerModal from "@/components/features/dashboard/RegisterPartnerModal";
 import ReferralLinkCard from "@/components/features/dashboard/ReferralLinkCard";
+import PaymentReceiptCard from "@/components/features/dashboard/PaymentReceiptCard";
+import DigitalIdWidget from "@/components/features/dashboard/DigitalIdWidget";
 
 export default function VendorDashboard() {
   const [stats, setStats] = useState<any>(null);
@@ -41,7 +43,7 @@ export default function VendorDashboard() {
   const statCards = [
     { title: 'Active Campaigns', value: stats?.activeCampaigns || 0, icon: Target, color: '#FF4D8C', trend: '+2 this month' },
     { title: 'Total Employees', value: stats?.totalEmployees || 0, icon: Briefcase, color: '#6A1B9A', trend: 'Active force' },
-    { title: 'Sub-Vendors', value: stats?.totalSubVendors || 0, icon: ShieldCheck, color: '#2E7D32', trend: 'Network partners' },
+    { title: 'Sub-Vendors', value: stats?.totalSubVendors || 0, icon: ShieldCheck, color: '#2E7D32', trend: 'Field partners' },
     { title: 'Total Members', value: stats?.totalMembers || 0, icon: Users, color: '#1565C0', trend: 'Community size' },
     { title: 'Paid Members', value: stats?.paidMembers || 0, icon: CheckCircle, color: '#2E7D32', trend: '₹ Collection' },
     { title: 'Free Members', value: stats?.freeMembers || 0, icon: Clock, color: '#EF6C00', trend: 'Pending activation' },
@@ -53,7 +55,7 @@ export default function VendorDashboard() {
         <header className="flex justify-between items-start">
           {/* <div>
             <h1 className="text-3xl md:text-4xl font-black text-secondary">Vendor Command Center</h1>
-            <p className="text-gray-400 font-bold mt-1 uppercase tracking-widest text-xs">Manage your recruitment hierarchy and campaign performance</p>
+            <p className="text-gray-400 font-bold mt-1 uppercase tracking-widest text-xs">Manage your field operations team and campaign performance</p>
           </div> */}
           <div className="flex gap-4">
             <button
@@ -109,46 +111,48 @@ export default function VendorDashboard() {
           </div>
         )}
 
+        <DigitalIdWidget user={user} />
+
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <ReferralLinkCard
             inviterRole="vendor"
             vendorCode={user?.vendorCode}
           />
 
-          {/* Security Deposit Status */}
-          <div className="bg-white p-8 rounded-[40px] border border-gray-100 shadow-soft">
-            <div className="flex justify-between items-center mb-8">
-              <h2 className="text-xl font-black text-secondary">Security Deposit Status</h2>
-              <button className="text-primary font-black text-xs uppercase tracking-widest">Pay Now</button>
-            </div>
-            <div className="flex flex-col gap-6">
-              {stats?.deposits?.map((d: any, i: number) => (
-                <div key={i} className="p-6 bg-gray-50 rounded-3xl flex justify-between items-center">
-                  <div>
-                    <h4 className="font-bold text-secondary">{d.campaignName}</h4>
-                    <p className="text-xs text-gray-400 mt-1">Due: ₹{d.amount}</p>
-                  </div>
-                  <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest ${d.status === 'paid' ? 'bg-green-100 text-green-600' : 'bg-amber-100 text-amber-600'}`}>
-                    {d.status}
-                  </span>
+          <PaymentReceiptCard />
+
+          {user?.appointmentDetails && (
+            <div className="bg-green-50/50 p-6 rounded-[32px] border border-green-100 flex flex-col sm:flex-row justify-between items-center text-left col-span-1 lg:col-span-2 shadow-sm gap-4 group hover:border-green-300 transition-all">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-green-500 text-white flex items-center justify-center shrink-0">
+                  <CheckCircle size={24} />
                 </div>
-              ))}
-              {!stats?.deposits?.length && (
-                <p className="text-center text-gray-400 font-bold py-10 italic">No security deposits linked yet.</p>
-              )}
+                <div>
+                  <h3 className="text-lg font-black text-green-800">Vendor Agreement Generated Successfully</h3>
+                  <p className="text-xs text-green-600 font-bold mt-1">
+                    Your official vendor agreement is ready.
+                  </p>
+                </div>
+              </div>
+              <a 
+                href="/vendor/dashboard/documents" 
+                className="flex items-center gap-2 px-6 py-3 bg-white text-green-700 border border-green-200 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-sm hover:bg-green-50 transition-all shrink-0"
+              >
+                <FileText size={14} /> Open Documents
+              </a>
             </div>
-          </div>
+          )}
 
           {/* Recent Activity */}
           <div className="bg-secondary p-8 rounded-[40px] text-white shadow-2xl">
-            <h2 className="text-xl font-black mb-8">Network Activity</h2>
+            <h2 className="text-xl font-black mb-8">Operations Activity</h2>
             <div className="flex flex-col gap-8">
               {[1, 2, 3].map((_, i) => (
                 <div key={i} className="flex gap-4 relative pl-6 border-l-2 border-white/10 hover:border-primary transition-all">
                   <div className="absolute left-[-5px] top-0 w-2 h-2 bg-primary rounded-full"></div>
                   <div>
                     <h4 className="text-sm font-bold">New Employee Registered</h4>
-                    <p className="text-xs text-white/60 mt-1">Ravi Kumar joined under Sub-Vendor SVN1245.</p>
+                    <p className="text-xs text-white/60 mt-1">Ravi Kumar joined under Sub-Vendor SHSVN1245.</p>
                     <p className="text-[10px] text-primary font-black mt-2 uppercase tracking-widest">2 hours ago</p>
                   </div>
                 </div>

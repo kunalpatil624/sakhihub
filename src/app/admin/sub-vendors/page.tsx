@@ -1,5 +1,6 @@
 'use client';
 
+import { getProxiedImageUrl } from "@/utils/imageUrl";
 import React, { useState, useEffect } from "react";
 import DashboardLayout from "@/components/features/dashboard/DashboardLayout";
 import { 
@@ -11,6 +12,7 @@ import axios from "axios";
 import { motion, AnimatePresence } from "framer-motion";
 import RegisterPartnerModal from "@/components/features/dashboard/RegisterPartnerModal";
 import HierarchyDetailView from "@/components/features/dashboard/HierarchyDetailView";
+import { getDocComplianceSummary } from '@/utils/documents';
 
 const getStatusBadge = (status: string) => {
   const map: Record<string, { label: string; className: string }> = {
@@ -26,23 +28,16 @@ const getStatusBadge = (status: string) => {
   return map[status] || { label: status, className: 'bg-gray-100 text-gray-500' };
 };
 
-const getDocComplianceSummary = (documents: any) => {
-  const requiredDocs = ['panCard', 'aadhaarCard', 'bankPassbook'];
-  let uploaded = 0, approved = 0, rejected = 0;
-  requiredDocs.forEach(d => {
-    const doc = documents?.[d];
-    if (doc?.url) uploaded++;
-    if (doc?.status === 'approved') approved++;
-    if (doc?.status === 'rejected' || doc?.status === 'reupload_required') rejected++;
-  });
-  return { total: 3, uploaded, approved, rejected };
-};
+
 
 export default function SubVendorManagement() {
   const [subVendors, setSubVendors] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
+  const [dateFilter, setDateFilter] = useState("all");
+  const [customDate, setCustomDate] = useState("");
+  const [paymentFilter, setPaymentFilter] = useState("all");
   const [selectedSV, setSelectedSV] = useState<any>(null);
   const [hierarchyData, setHierarchyData] = useState<any>(null);
   const [loadingHierarchy, setLoadingHierarchy] = useState(false);
@@ -67,7 +62,7 @@ export default function SubVendorManagement() {
   const fetchSubVendors = async () => {
     setLoading(true);
     try {
-      const res = await axios.get(`/api/admin/sub-vendors?status=${status}&search=${search}`);
+      const res = await axios.get(`/api/admin/sub-vendors?status=${status}&search=${search}&dateRange=${dateFilter}&paymentStatus=${paymentFilter}&customDate=${customDate}`);
       if (res.data.success) setSubVendors(res.data.data);
     } catch (err) {
       console.error(err);
@@ -81,7 +76,7 @@ export default function SubVendorManagement() {
       fetchSubVendors();
     }, 500);
     return () => clearTimeout(timer);
-  }, [search, status]);
+  }, [search, status, dateFilter, paymentFilter, customDate]);
 
   // Body Scroll Lock
   useEffect(() => {
@@ -161,7 +156,7 @@ export default function SubVendorManagement() {
         <div className="flex justify-between items-start flex-wrap gap-6">
           <div>
             <h1 className="text-3xl md:text-4xl font-black text-secondary">Sub-Vendor Network</h1>
-            <p className="text-gray-400 font-bold mt-1 uppercase tracking-widest text-xs">Manage secondary partners and regional recruitment leads.</p>
+            <p className="text-gray-400 font-bold mt-1 uppercase tracking-widest text-xs">Manage secondary partners and regional field coordinators.</p>
           </div>
           <button 
             onClick={() => setShowRegisterModal(true)}
@@ -183,6 +178,37 @@ export default function SubVendorManagement() {
                 className="w-full pl-14 pr-5 py-4 bg-gray-50 border border-gray-100 rounded-2xl font-bold focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all"
               />
             </div>
+            <div className="flex gap-2">
+              <select
+                value={dateFilter}
+                onChange={(e) => setDateFilter(e.target.value)}
+                className="px-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl text-xs font-bold text-secondary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+              >
+                <option value="all">All Time</option>
+                <option value="today">Today</option>
+                <option value="yesterday">Yesterday</option>
+                <option value="custom">Custom Date</option>
+              </select>
+              
+              {dateFilter === 'custom' && (
+                <input 
+                  type="date"
+                  value={customDate}
+                  onChange={(e) => setCustomDate(e.target.value)}
+                  className="px-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl text-xs font-bold text-secondary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+                />
+              )}
+              
+              <select
+                value={paymentFilter}
+                onChange={(e) => setPaymentFilter(e.target.value)}
+                className="px-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl text-xs font-bold text-secondary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+              >
+                <option value="all">All Payments</option>
+                <option value="paid">Paid</option>
+                <option value="unpaid">Unpaid</option>
+              </select>
+            </div>
              <div className="flex gap-2 bg-gray-50 p-1.5 rounded-2xl overflow-x-auto no-scrollbar">
                {['all', 'pending', 'documents_uploaded', 'under_review', 'reupload_required', 'active', 'rejected'].map((s) => (
                  <button 
@@ -203,6 +229,7 @@ export default function SubVendorManagement() {
                    <th className="p-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Sub-Vendor</th>
                   <th className="p-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Parent Vendor</th>
                   <th className="p-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Document Compliance</th>
+                  <th className="p-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Payment Status</th>
                   <th className="p-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Status</th>
                   <th className="p-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Actions</th>
                 </tr>
@@ -224,6 +251,14 @@ export default function SubVendorManagement() {
                             <p className="font-black text-secondary leading-tight">{sv.fullName}</p>
                             <div className="flex items-center gap-1.5 mt-1">
                                <p className="text-[10px] text-primary font-black uppercase tracking-widest">{sv.subVendorCode}</p>
+                               {sv.vendorType && (
+                                 <>
+                                   <span className="text-[9px] text-gray-300 font-bold">•</span>
+                                   <span className="px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-widest bg-gray-100 text-gray-500">
+                                     {sv.vendorType.replace('_', ' ')}
+                                   </span>
+                                 </>
+                               )}
                                <span className="text-[9px] text-gray-300 font-bold">•</span>
                                <span className="text-[9px] text-gray-400 font-bold flex items-center gap-1"><MapPin size={10} /> {sv.district}</span>
                             </div>
@@ -247,12 +282,12 @@ export default function SubVendorManagement() {
                       </td>
                       <td className="p-5">
                         {(() => {
-                          const compliance = getDocComplianceSummary(sv.documents);
+                          const compliance = getDocComplianceSummary(sv.documents, 'sub_vendor', sv.vendorType);
                           return (
                             <div className="flex flex-col gap-2">
                               <div className="flex gap-1">
-                                {[0, 1, 2].map(i => (
-                                  <div key={i} className={`w-8 h-1.5 rounded-full ${
+                                {Array.from({ length: compliance.total }).map((_, i) => (
+                                  <div key={i} className={`h-1.5 flex-1 rounded-full max-w-[32px] ${
                                     i < compliance.approved ? 'bg-green-500' :
                                     i < compliance.uploaded ? 'bg-primary' :
                                     'bg-gray-200'
@@ -261,7 +296,7 @@ export default function SubVendorManagement() {
                               </div>
                               <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-widest">
                                 {compliance.uploaded > 0 && (
-                                  <span className="text-primary flex items-center gap-1"><Upload size={10} /> {compliance.uploaded}/3</span>
+                                  <span className="text-primary flex items-center gap-1"><Upload size={10} /> {compliance.uploaded}/{compliance.total}</span>
                                 )}
                                 {compliance.approved > 0 && (
                                   <span className="text-green-600 flex items-center gap-1"><ShieldCheck size={10} /> {compliance.approved}</span>
@@ -270,6 +305,26 @@ export default function SubVendorManagement() {
                             </div>
                           );
                         })()}
+                      </td>
+                      <td className="p-5" onClick={(e) => e.stopPropagation()}>
+                        {sv.paymentCompleted ? (
+                          <span className="px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest bg-green-100 text-green-600">
+                            Paid
+                          </span>
+                        ) : (sv.subscriptionPaid || sv.depositPaid) ? (
+                          <div className="flex flex-col gap-1">
+                            <span className={`px-2 py-1 rounded text-[8px] font-black uppercase tracking-widest whitespace-nowrap ${sv.subscriptionPaid ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-500'}`}>
+                              Sub: {sv.subscriptionPaid ? 'Paid' : 'Pending'}
+                            </span>
+                            <span className={`px-2 py-1 rounded text-[8px] font-black uppercase tracking-widest whitespace-nowrap ${sv.depositPaid ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-500'}`}>
+                              Dep: {sv.depositPaid ? 'Paid' : 'Pending'}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest bg-red-100 text-red-600">
+                            Unpaid
+                          </span>
+                        )}
                       </td>
                       <td className="p-5">
                         {(() => {

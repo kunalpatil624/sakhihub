@@ -10,6 +10,7 @@ import {
   IndianRupee, CheckCircle2, ChevronDown 
 } from "lucide-react";
 import axios from "axios";
+import { toast } from 'sonner';
 
 export default function EmployeeMembersPage() {
   const [activeTab, setActiveTab] = useState<'my-members' | 'discovery'>('my-members');
@@ -45,11 +46,12 @@ export default function EmployeeMembersPage() {
     try {
       const res = await axios.post('/api/employee/request', { memberUserId });
       if (res.data.success) {
-        alert("Request sent successfully");
+        toast.success("Request sent successfully");
         fetchMembers();
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      toast.error(err.response?.data?.message || "Failed to send request");
     } finally {
       setActionLoading(null);
     }
@@ -182,13 +184,24 @@ export default function EmployeeMembersPage() {
                   </td>
                   <td className="p-6">
                     {activeTab === 'discovery' ? (
-                      <button 
-                        onClick={() => handleSendRequest(member.userId && typeof member.userId === 'object' ? (member.userId as any)._id : member.userId)}
-                        disabled={!!actionLoading || member.connectionStatus === 'pending_request'}
-                        className="px-6 py-2.5 bg-primary text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:scale-105 transition-all disabled:opacity-50 disabled:hover:scale-100 shadow-lg shadow-primary/20"
-                      >
-                        {member.connectionStatus === 'pending_request' ? 'Request Sent' : (actionLoading === (member.userId && typeof member.userId === 'object' ? (member.userId as any)._id : member.userId) ? 'Sending...' : 'Send Request')}
-                      </button>
+                      (() => {
+                        const targetId = member.userId && typeof member.userId === 'object' ? (member.userId as any)._id : member.userId;
+                        const isPending = member.connectionStatus === 'pending_request';
+                        const isSending = actionLoading === targetId && targetId != null;
+                        const isDisabled = !!actionLoading || isPending || !targetId;
+                        
+                        return (
+                          <button 
+                            onClick={() => targetId && handleSendRequest(targetId)}
+                            disabled={isDisabled}
+                            className={`px-6 py-2.5 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all shadow-lg ${
+                              !targetId ? 'bg-gray-200 text-gray-500 shadow-none' : 'bg-primary text-white hover:scale-105 disabled:opacity-50 disabled:hover:scale-100 shadow-primary/20'
+                            }`}
+                          >
+                            {isPending ? 'Request Sent' : isSending ? 'Sending...' : (!targetId ? 'No Account' : 'Send Request')}
+                          </button>
+                        );
+                      })()
                     ) : (
                       <div className="flex gap-4">
                          <button 

@@ -1,9 +1,10 @@
 'use client';
 
+import { useLanguage } from "@/context/LanguageContext";
 import React, { useState, useEffect } from "react";
-import { 
-  Phone, Lock, Heart, ShieldCheck, ArrowRight, ArrowLeft, 
-  Mail, AlertCircle, CheckCircle, Sparkles 
+import {
+  Phone, Lock, Heart, ShieldCheck, ArrowRight, ArrowLeft,
+  Mail, AlertCircle, CheckCircle, Sparkles
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -14,6 +15,7 @@ import { validatePassword } from "@/utils/validation";
 
 export default function ForgotPasswordPage() {
   const router = useRouter();
+  const { t } = useLanguage();
   const [step, setStep] = useState(1); // 1: Email/Request, 2: OTP, 3: New Password
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -84,10 +86,10 @@ export default function ForgotPasswordPage() {
     setLoading(true);
     setError("");
     try {
-      const res = await axios.post('/api/auth/reset-password', { 
-        email, 
-        otp, 
-        newPassword 
+      const res = await axios.post('/api/auth/reset-password', {
+        email,
+        otp,
+        newPassword
       });
       if (res.data.success) {
         setSuccess("Password reset successful! Redirecting to login...");
@@ -160,7 +162,7 @@ export default function ForgotPasswordPage() {
             {step === 1 && (
               <motion.form key="step1" {...fadeInUp} onSubmit={handleRequestOtp} className="flex flex-col gap-6">
                 <div className="flex flex-col gap-2">
-                  <label className="text-xs font-black text-gray-500 uppercase tracking-widest pl-2">Email Address</label>
+                  <label className="text-xs font-black text-gray-500 uppercase tracking-widest pl-2">{t("auth.forgot.emailLabel")}</label>
                   <div className="relative group">
                     <Mail size={18} className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-primary transition-colors" />
                     <input
@@ -221,7 +223,7 @@ export default function ForgotPasswordPage() {
             {step === 3 && (
               <motion.form key="step3" {...fadeInUp} onSubmit={handleResetPassword} className="flex flex-col gap-6">
                 <div className="flex flex-col gap-2">
-                  <label className="text-xs font-black text-gray-500 uppercase tracking-widest pl-2">New Password</label>
+                  <label className="text-xs font-black text-gray-500 uppercase tracking-widest pl-2">{t("auth.forgot.newPassword")}</label>
                   <PasswordField
                     name="newPassword"
                     value={newPassword}
@@ -232,7 +234,7 @@ export default function ForgotPasswordPage() {
                 </div>
 
                 <div className="flex flex-col gap-2">
-                  <label className="text-xs font-black text-gray-500 uppercase tracking-widest pl-2">Confirm Password</label>
+                  <label className="text-xs font-black text-gray-500 uppercase tracking-widest pl-2">{t("auth.forgot.confirmPassword")}</label>
                   <PasswordField
                     name="confirmPassword"
                     value={confirmPassword}

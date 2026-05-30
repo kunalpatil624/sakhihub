@@ -7,16 +7,22 @@ import {
   FileText, CreditCard, PieChart, Activity,
   ChevronRight, Link2, ExternalLink, Calendar,
   CheckCircle2, Clock, AlertCircle, X,
-  FileCheck, Landmark, UserCheck, RefreshCw
+  FileCheck, Landmark, UserCheck, RefreshCw, PenTool
 } from 'lucide-react';
+import axios from 'axios';
 import { motion } from 'framer-motion';
 import { 
   getDocumentViewUrl, 
   isDocumentUploaded, 
   REQUIRED_DOCS_BY_ROLE, 
-  getDocComplianceSummary 
+  getDocComplianceSummary,
+  getRequiredDocs,
+  getRequiredDocsForUser
 } from '@/utils/documents';
 import DocumentReviewCard from '@/components/features/dashboard/DocumentReviewCard';
+import { toast } from 'sonner';
+import StatCard from '@/components/shared/StatCard';
+import { getProxiedImageUrl } from '@/utils/imageUrl';
 
 interface HierarchyDetailViewProps {
   data: {
@@ -45,25 +51,117 @@ interface HierarchyDetailViewProps {
 export default function HierarchyDetailView({ data, onClose, onStatusUpdate }: HierarchyDetailViewProps) {
   const { user, counts, hierarchy } = data;
   const [activeTab, setActiveTab] = React.useState('overview');
+  
+  // Appointment / Agreement Letter State
+  const [joiningDate, setJoiningDate] = React.useState('');
+  const [salary, setSalary] = React.useState('');
+  
+  // Vendor Specific Agreement State
+  const [partnerType, setPartnerType] = React.useState('');
+  const [assignedTerritory, setAssignedTerritory] = React.useState('');
+  const [incentiveStructure, setIncentiveStructure] = React.useState('');
+  const [salaryStructure, setSalaryStructure] = React.useState('');
+  const [monthlyTargets, setMonthlyTargets] = React.useState('');
+  const [operationalRole, setOperationalRole] = React.useState('');
+  const [membershipCommission, setMembershipCommission] = React.useState('');
+
+  const [isGeneratingAppt, setIsGeneratingAppt] = React.useState(false);
+  // Keep local user state to update appointment details immediately
+  const [localUser, setLocalUser] = React.useState(user);
+  const [digitalCertificates, setDigitalCertificates] = React.useState<any[]>((data as any).digitalCertificates || []);
+
+  React.useEffect(() => {
+    setLocalUser(user);
+    setDigitalCertificates((data as any).digitalCertificates || []);
+  }, [user, (data as any).digitalCertificates]);
+
+  React.useEffect(() => {
+    const agreement = localUser?.vendorAgreementDetails || localUser?.appointmentDetails;
+    if (agreement) {
+      if (agreement.joiningDate) {
+        try {
+          const dateObj = new Date(agreement.joiningDate);
+          if (!isNaN(dateObj.getTime())) {
+            setJoiningDate(dateObj.toISOString().split('T')[0]);
+          }
+        } catch (e) {}
+      }
+      setPartnerType(agreement.partnerType || '');
+      setAssignedTerritory(agreement.assignedTerritory || '');
+      setIncentiveStructure(agreement.incentiveStructure || '');
+      setSalaryStructure(agreement.salaryStructure || '');
+      setMonthlyTargets(agreement.monthlyTargets || '');
+      setOperationalRole(agreement.operationalRole || '');
+      setMembershipCommission(agreement.membershipCommission || '');
+    }
+
+    const offerLetter = localUser?.offerLetterDetails;
+    if (offerLetter) {
+      if (offerLetter.joiningDate) {
+        try {
+          const dateObj = new Date(offerLetter.joiningDate);
+          if (!isNaN(dateObj.getTime())) {
+            setJoiningDate(dateObj.toISOString().split('T')[0]);
+          }
+        } catch (e) {}
+      }
+      setSalary(offerLetter.salary ? offerLetter.salary.toString() : '');
+    }
+  }, [localUser]);
 
   const tabs = [
     { id: 'overview', label: 'Overview', icon: PieChart },
     { id: 'network', label: 'Network', icon: Users },
     { id: 'ops', label: 'Operations', icon: Target },
     { id: 'docs', label: 'Compliance', icon: ShieldCheck },
+    { id: 'agreement', label: 'Agreement', icon: PenTool },
   ];
 
-  const StatCard = ({ label, value, icon: Icon, color }: any) => (
-    <div className="bg-white p-6 rounded-[32px] border border-gray-100 shadow-soft flex items-center gap-4 hover:border-primary/20 transition-all group">
-      <div className={`w-12 h-12 rounded-2xl ${color} flex items-center justify-center transition-transform group-hover:scale-110`}>
-        <Icon size={24} />
-      </div>
-      <div>
-        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{label}</p>
-        <p className="text-xl font-black text-secondary mt-0.5">{value}</p>
-      </div>
-    </div>
-  );
+  const generateAppointmentLetter = async () => {
+    if (!joiningDate || !salary) {
+      toast.error("Please enter both Joining Date and Salary.");
+      return;
+    }
+    setIsGeneratingAppt(true);
+    try {
+      const res = await axios.post(`/api/admin/users/${localUser._id}/appointment`, {
+        joiningDate,
+        salary
+      });
+      if (res.data.success) {
+        setLocalUser(res.data.data);
+      }
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Failed to generate appointment letter");
+    } finally {
+      setIsGeneratingAppt(false);
+    }
+  };
+
+  const [signedDocRemarks, setSignedDocRemarks] = React.useState('');
+  const [signedDocActionLoading, setSignedDocActionLoading] = React.useState<string | null>(null);
+
+  const updateDocumentLock = async (
+    docId: string,
+    isLocked: boolean,
+    isApproved: boolean,
+    adminRemarks?: string,
+    newStatus?: string
+  ) => {
+    try {
+      const res = await axios.post(`/api/admin/users/${localUser._id}/documents/${docId}/lock`, {
+        isLocked,
+        isApproved,
+        adminRemarks,
+        newStatus
+      });
+      if (res.data.success) {
+        setDigitalCertificates(prev => prev.map(d => d._id === docId ? { ...d, ...res.data.data.document } : d));
+      }
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed to update document status');
+    }
+  };
 
   return (
     <div className="flex flex-col bg-white rounded-[40px] shadow-2xl border border-gray-100 min-h-full">
@@ -76,8 +174,12 @@ export default function HierarchyDetailView({ data, onClose, onStatusUpdate }: H
         ><X size={20} /></button>
 
         <div className="flex flex-col md:flex-row gap-8 items-center md:items-start relative z-10">
-          <div className="w-24 h-24 md:w-32 md:h-32 rounded-[40px] bg-white text-secondary flex items-center justify-center text-4xl md:text-6xl font-black shadow-2xl border-4 border-white/20">
-            {user.fullName?.[0] || 'U'}
+          <div className="w-24 h-24 md:w-32 md:h-32 rounded-[40px] bg-white text-secondary flex items-center justify-center text-4xl md:text-6xl font-black shadow-2xl border-4 border-white/20 overflow-hidden">
+            {user.profileImage ? (
+              <img src={getProxiedImageUrl(user.profileImage)} alt={user.fullName} className="w-full h-full object-cover" />
+            ) : (
+              user.fullName?.[0] || 'U'
+            )}
           </div>
           <div className="text-center md:text-left flex-1">
             <div className="flex flex-col md:flex-row md:items-center gap-3 mb-2">
@@ -92,14 +194,24 @@ export default function HierarchyDetailView({ data, onClose, onStatusUpdate }: H
                 <ShieldCheck size={14} className="text-primary-light" />
                 <span>{user.role.replace('_', ' ').toUpperCase()}: {user.vendorCode || user.subVendorCode || user.employeeId}</span>
               </div>
-              <div className="flex items-center gap-2 px-4 py-2 bg-white/10 rounded-2xl text-xs font-bold border border-white/10">
-                <MapPin size={14} className="text-primary-light" />
-                <span>{user.district}, {user.state}</span>
+              {user.role === 'vendor' && user.vendorType && (
+                <div className={`flex items-center gap-2 px-4 py-2 rounded-2xl text-xs font-black border border-white/10 ${
+                  user.vendorType === 'company' ? 'bg-blue-400/20' :
+                  user.vendorType === 'ngo_trust' ? 'bg-purple-400/20' :
+                  'bg-white/10'
+                }`}>
+                  <Briefcase size={14} className="text-primary-light" />
+                <span>{localUser.vendorType === 'ngo_trust' ? 'NGO / Trust' : localUser.vendorType === 'company' ? 'Company' : 'Individual'} Vendor</span>
               </div>
-              {user.parentVendorId && (
-                <div className="flex items-center gap-2 px-4 py-2 bg-white/10 rounded-2xl text-xs font-bold border border-white/10">
-                  <Link2 size={14} className="text-primary-light" />
-                  <span>Parent: {user.parentVendorId.fullName}</span>
+            )}
+            <div className="flex items-center gap-2 px-4 py-2 bg-white/10 rounded-2xl text-xs font-bold border border-white/10">
+              <MapPin size={14} className="text-primary-light" />
+              <span>{localUser.district}, {localUser.state}</span>
+            </div>
+            {localUser.parentVendorId && (
+              <div className="flex items-center gap-2 px-4 py-2 bg-white/10 rounded-2xl text-xs font-bold border border-white/10">
+                <Link2 size={14} className="text-primary-light" />
+                <span>Parent: {localUser.parentVendorId.fullName}</span>
                 </div>
               )}
             </div>
@@ -227,7 +339,13 @@ export default function HierarchyDetailView({ data, onClose, onStatusUpdate }: H
                    {hierarchy.subVendors.length > 0 ? hierarchy.subVendors.map(sv => (
                      <div key={sv._id} className="p-5 bg-white border border-gray-100 rounded-[32px] shadow-sm flex items-center justify-between group hover:border-primary transition-all">
                        <div className="flex items-center gap-4">
-                         <div className="w-12 h-12 rounded-2xl bg-secondary/10 text-secondary flex items-center justify-center font-black text-lg">S</div>
+                         <div className="w-12 h-12 rounded-2xl bg-secondary/10 text-secondary flex items-center justify-center font-black text-lg overflow-hidden">
+                           {sv.profileImage ? (
+                             <img src={getProxiedImageUrl(sv.profileImage)} alt={sv.fullName} className="w-full h-full object-cover" />
+                           ) : (
+                             'S'
+                           )}
+                         </div>
                          <div>
                            <p className="font-black text-secondary leading-tight">{sv.fullName}</p>
                            <p className="text-[10px] text-primary font-black mt-0.5 uppercase tracking-widest">{sv.subVendorCode}</p>
@@ -342,8 +460,79 @@ export default function HierarchyDetailView({ data, onClose, onStatusUpdate }: H
                   </h4>
                 </div>
 
+                {/* Credential Details Block */}
+                <div className="bg-gray-50/50 border border-gray-100 rounded-[32px] p-6 space-y-6">
+                  <h5 className="text-xs font-black text-secondary uppercase tracking-widest flex items-center gap-2 border-b border-gray-100 pb-3">
+                    <FileText size={16} className="text-primary" /> Submitted Credential Details
+                  </h5>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Aadhaar & PAN Card Info */}
+                    <div className="space-y-4">
+                      <div className="bg-white p-5 rounded-2xl border border-gray-50 shadow-sm flex items-start gap-4">
+                        <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                          <UserCheck size={20} />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Aadhaar Number</p>
+                          <p className="font-mono font-bold text-secondary text-sm mt-1 truncate">
+                            {localUser.aadhaarNumber ? localUser.aadhaarNumber.replace(/(\d{4})/g, '$1 ').trim() : 'Not Provided'}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="bg-white p-5 rounded-2xl border border-gray-50 shadow-sm flex items-start gap-4">
+                        <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                          <FileCheck size={20} />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">PAN Number</p>
+                          <p className="font-mono font-bold text-secondary text-sm mt-1 truncate">
+                            {localUser.panNumber || 'Not Provided'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Bank details info */}
+                    <div className="bg-white p-5 rounded-2xl border border-gray-50 shadow-sm flex flex-col gap-4">
+                      <div className="flex items-center gap-3 border-b border-gray-50 pb-2">
+                        <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                          <Landmark size={20} />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Bank Details</p>
+                          <p className="font-black text-secondary text-xs truncate">{localUser.bankDetails?.bankName || 'Not Provided'}</p>
+                        </div>
+                      </div>
+                      {localUser.bankDetails?.accountNumber ? (
+                        <div className="grid grid-cols-2 gap-4 text-xs">
+                          <div className="min-w-0">
+                            <p className="text-[8px] font-black text-gray-400 uppercase">Account Holder</p>
+                            <p className="font-bold text-secondary truncate mt-0.5">{localUser.bankDetails?.accountHolderName || 'N/A'}</p>
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-[8px] font-black text-gray-400 uppercase">Account Number</p>
+                            <p className="font-mono font-bold text-secondary truncate mt-0.5">{localUser.bankDetails?.accountNumber}</p>
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-[8px] font-black text-gray-400 uppercase">IFSC Code</p>
+                            <p className="font-mono font-bold text-secondary truncate mt-0.5">{localUser.bankDetails?.ifscCode || 'N/A'}</p>
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-[8px] font-black text-gray-400 uppercase">Branch</p>
+                            <p className="font-bold text-secondary truncate mt-0.5">{localUser.bankDetails?.branchName || 'N/A'}</p>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-center py-4 text-gray-400 font-bold italic text-xs">
+                          Bank details not submitted.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-1 gap-6">
-                  {(REQUIRED_DOCS_BY_ROLE[user.role as keyof typeof REQUIRED_DOCS_BY_ROLE] || []).map((type) => (
+                  {getRequiredDocsForUser(user.role, user.documents, user.vendorType).map((type) => (
                     <DocumentReviewCard 
                       key={type}
                       type={type}
@@ -363,7 +552,7 @@ export default function HierarchyDetailView({ data, onClose, onStatusUpdate }: H
                    <h4 className="text-xl font-black mb-6 relative z-10">Compliance Summary</h4>
                    <div className="space-y-6 relative z-10">
                       {(() => {
-                        const summary = getDocComplianceSummary(user.documents, user.role);
+                        const summary = getDocComplianceSummary(user.documents, user.role, user.vendorType);
                         
                         return (
                           <>
@@ -409,6 +598,385 @@ export default function HierarchyDetailView({ data, onClose, onStatusUpdate }: H
             </div>
           </motion.div>
         )}
+
+        {activeTab === 'agreement' && (() => {
+          const hasAgreement = localUser.role === 'employee' ? localUser.offerLetterDetails : localUser.vendorAgreementDetails;
+          return (
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-300">
+              <div className="max-w-2xl mx-auto space-y-8">
+                <div className="text-center">
+                  <div className="w-16 h-16 bg-primary/10 text-primary rounded-2xl mx-auto flex items-center justify-center mb-4">
+                    <FileText size={32} />
+                  </div>
+                  <h3 className="text-2xl font-black text-secondary tracking-tight">
+                    {localUser.role === 'employee' ? 'Employee Offer Letter' : 'Vendor Agreement'}
+                  </h3>
+                  <p className="text-sm text-gray-500 font-bold mt-2">
+                    {hasAgreement 
+                      ? `View and manage the official digital ${localUser.role === 'employee' ? 'offer letter' : 'agreement'} details.` 
+                      : `Generate the official digital ${localUser.role === 'employee' ? 'offer letter' : 'agreement'} for this ${localUser.role === 'employee' ? 'employee' : 'partner'}.`
+                    }
+                  </p>
+                </div>
+
+                {hasAgreement && (
+                  <div className="bg-green-50 border border-green-200 rounded-[32px] p-8 text-center relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-green-200/50 rounded-full blur-2xl -mr-16 -mt-16" />
+                    <div className="relative z-10">
+                      <CheckCircle2 size={48} className="text-green-500 mx-auto mb-4" />
+                      <h4 className="text-xl font-black text-green-800">
+                        {localUser.role === 'employee' ? 'Employee Offer Letter' : 'Vendor Agreement'} Generated Successfully
+                      </h4>
+                      <p className="text-sm text-green-700 font-bold mt-2 mb-6">
+                        ID: <span className="font-mono bg-white px-2 py-1 rounded">
+                          {localUser.role === 'employee' ? localUser.offerLetterDetails.offerLetterId : localUser.vendorAgreementDetails.agreementId}
+                        </span>
+                      </p>
+                      <a 
+                        href={localUser.role === 'employee' ? `/employee-offer-letter/${localUser._id}` : (localUser.vendorAgreementDetails.fileUrl || `/api/vendor/agreement/${localUser.vendorAgreementDetails.agreementId}/preview`)} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 bg-green-600 text-white px-8 py-3 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-green-700 transition-colors shadow-lg shadow-green-200"
+                      >
+                        <ExternalLink size={16} /> Preview & Print Document
+                      </a>
+                    </div>
+                  </div>
+                )}
+
+                <div className="bg-gray-50 p-8 rounded-[32px] border border-gray-100">
+                  <div className="space-y-6">
+                    <div>
+                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Joining Date</label>
+                      <input 
+                        type="date" 
+                        value={joiningDate}
+                        onChange={(e) => setJoiningDate(e.target.value)}
+                        className="w-full px-5 py-3 rounded-2xl bg-white border border-gray-200 font-bold text-secondary focus:outline-none focus:border-primary"
+                      />
+                    </div>
+
+                    {localUser.role === 'employee' ? (
+                      <div>
+                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Fixed Salary / Remuneration (₹)</label>
+                        <div className="relative">
+                          <span className="absolute left-5 top-1/2 -translate-y-1/2 font-black text-gray-400">₹</span>
+                          <input 
+                            type="number" 
+                            placeholder="e.g. 15000"
+                            value={salary}
+                            onChange={(e) => setSalary(e.target.value)}
+                            className="w-full pl-10 pr-5 py-3 rounded-2xl bg-white border border-gray-200 font-bold text-secondary focus:outline-none focus:border-primary"
+                          />
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Partner Type</label>
+                          <input type="text" value={partnerType} onChange={(e) => setPartnerType(e.target.value)} placeholder="e.g. Authorized Distributor" className="w-full px-5 py-3 rounded-2xl bg-white border border-gray-200 font-bold text-secondary focus:outline-none focus:border-primary" />
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Assigned Territory</label>
+                          <input type="text" value={assignedTerritory} onChange={(e) => setAssignedTerritory(e.target.value)} placeholder="e.g. North District" className="w-full px-5 py-3 rounded-2xl bg-white border border-gray-200 font-bold text-secondary focus:outline-none focus:border-primary" />
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Salary Structure</label>
+                          <input type="text" value={salaryStructure} onChange={(e) => setSalaryStructure(e.target.value)} placeholder="e.g. ₹20,000/mo Fixed" className="w-full px-5 py-3 rounded-2xl bg-white border border-gray-200 font-bold text-secondary focus:outline-none focus:border-primary" />
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Incentive Structure</label>
+                          <input type="text" value={incentiveStructure} onChange={(e) => setIncentiveStructure(e.target.value)} placeholder="e.g. 5% on Sales" className="w-full px-5 py-3 rounded-2xl bg-white border border-gray-200 font-bold text-secondary focus:outline-none focus:border-primary" />
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Membership Commission</label>
+                          <input type="text" value={membershipCommission} onChange={(e) => setMembershipCommission(e.target.value)} placeholder="e.g. ₹100 per member" className="w-full px-5 py-3 rounded-2xl bg-white border border-gray-200 font-bold text-secondary focus:outline-none focus:border-primary" />
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Monthly Targets</label>
+                          <input type="text" value={monthlyTargets} onChange={(e) => setMonthlyTargets(e.target.value)} placeholder="e.g. 50 Members/mo" className="w-full px-5 py-3 rounded-2xl bg-white border border-gray-200 font-bold text-secondary focus:outline-none focus:border-primary" />
+                        </div>
+                        <div className="md:col-span-2">
+                          <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">Operational Role</label>
+                          <input type="text" value={operationalRole} onChange={(e) => setOperationalRole(e.target.value)} placeholder="e.g. Manage field agents and onboarding" className="w-full px-5 py-3 rounded-2xl bg-white border border-gray-200 font-bold text-secondary focus:outline-none focus:border-primary" />
+                        </div>
+                      </div>
+                    )}
+
+                    <button 
+                      onClick={async () => {
+                        if (!joiningDate) {
+                          toast.error("Please enter Joining Date.");
+                          return;
+                        }
+                        if (localUser.role === 'employee' && !salary) {
+                          toast.error("Please enter Salary.");
+                          return;
+                        }
+                        setIsGeneratingAppt(true);
+                        try {
+                          const endpoint = localUser.role === 'employee' 
+                            ? `/api/admin/users/${localUser._id}/offer-letter`
+                            : `/api/admin/users/${localUser._id}/vendor-agreement`;
+                          
+                          const payload = localUser.role === 'employee' 
+                            ? { joiningDate, salary }
+                            : { 
+                                joiningDate, partnerType, assignedTerritory, 
+                                salaryStructure, incentiveStructure, membershipCommission, 
+                                monthlyTargets, operationalRole 
+                              };
+
+                          const res = await axios.post(endpoint, payload);
+                          if (res.data.success) {
+                            const updatedUser = res.data.data;
+                            setLocalUser(updatedUser);
+
+                            // Immediately inject the new doc into digitalCertificates so the
+                            // signed-doc review panel appears without needing a page refresh
+                            if (localUser.role === 'employee' && updatedUser.offerLetterDetails) {
+                              const ol = updatedUser.offerLetterDetails;
+                              setDigitalCertificates(prev => {
+                                const filtered = prev.filter(c => c.type !== 'employee_offer_letter');
+                                return [...filtered, {
+                                  _id: ol._id,
+                                  type: 'employee_offer_letter',
+                                  title: 'Employee Offer Letter',
+                                  fileUrl: ol.pdfUrl,
+                                  uploadedDocumentUrl: ol.uploadedDocumentUrl,
+                                  status: ol.status || 'generated',
+                                  isLocked: ol.isLocked || false,
+                                  adminRemarks: ol.adminRemarks,
+                                  agreementId: ol.offerLetterId,
+                                  createdAt: ol.createdAt,
+                                  visibleToEmployee: true
+                                }];
+                              });
+                            } else if ((localUser.role === 'vendor' || localUser.role === 'sub_vendor') && updatedUser.vendorAgreementDetails) {
+                              const ag = updatedUser.vendorAgreementDetails;
+                              setDigitalCertificates(prev => {
+                                const filtered = prev.filter(c => c.type !== 'auth_letter');
+                                return [...filtered, {
+                                  _id: ag._id,
+                                  type: 'auth_letter',
+                                  title: 'Partnership Agreement',
+                                  fileUrl: ag.fileUrl || `/api/vendor/agreement/${ag.agreementId}/preview`,
+                                  uploadedDocumentUrl: ag.uploadedDocumentUrl,
+                                  status: ag.status || 'generated',
+                                  isLocked: ag.isLocked || false,
+                                  adminRemarks: ag.adminRemarks,
+                                  agreementId: ag.agreementId,
+                                  createdAt: ag.createdAt,
+                                  visibleToVendor: true
+                                }];
+                              });
+                            }
+                            toast.success(hasAgreement ? "Details updated successfully" : "Document generated successfully");
+                          }
+                        } catch (err: any) {
+                          toast.error(err.response?.data?.message || "Failed to update details");
+                        } finally {
+                          setIsGeneratingAppt(false);
+                        }
+                      }}
+                      disabled={isGeneratingAppt}
+                      className="w-full py-4 bg-primary text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:scale-[1.02] transition-transform disabled:opacity-50"
+                    >
+                      {isGeneratingAppt 
+                        ? (hasAgreement ? 'Updating...' : 'Generating...') 
+                        : (hasAgreement 
+                            ? `Update ${localUser.role === 'employee' ? 'Offer Letter' : 'Agreement'} Details` 
+                            : `Generate ${localUser.role === 'employee' ? 'Offer Letter' : 'Vendor Agreement'}`
+                          )
+                      }
+                    </button>
+                    <p className="text-[10px] text-gray-400 font-bold text-center uppercase tracking-widest">
+                      * System will generate an immutable PDF document using these details.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Signed Document Review Panel */}
+                {hasAgreement && (() => {
+                  const targetType = localUser.role === 'employee' ? 'employee_offer_letter' : 'auth_letter';
+                  const authLetter = digitalCertificates?.find((c: any) => c.type === targetType);
+                  if (!authLetter) return null;
+
+                  const docStatus = authLetter.status || 'generated';
+                  const isDocLocked = authLetter.isLocked;
+
+                  const statusConfig: Record<string, { label: string; cls: string }> = {
+                    generated: { label: 'Generated — Awaiting Signed Copy', cls: 'bg-blue-100 text-blue-700' },
+                    uploaded:  { label: 'Signed Copy Uploaded — Pending Review', cls: 'bg-amber-100 text-amber-700' },
+                    under_review: { label: 'Under Review', cls: 'bg-amber-100 text-amber-700' },
+                    approved:  { label: 'Approved & Locked', cls: 'bg-green-100 text-green-700' },
+                    rejected:  { label: 'Rejected', cls: 'bg-red-100 text-red-700' },
+                    reupload_required: { label: 'Re-upload Requested', cls: 'bg-orange-100 text-orange-700' },
+                  };
+                  const meta = statusConfig[docStatus] || statusConfig.generated;
+
+                  return (
+                    <div className="bg-white border border-gray-100 shadow-soft rounded-[32px] p-8 mt-8 space-y-6">
+                      {/* Header */}
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <h4 className="text-lg font-black text-secondary">
+                            {localUser.role === 'employee' ? 'Offer Letter' : 'Vendor Agreement'} — Signed Copy Review
+                          </h4>
+                          <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1">
+                            ID: {authLetter.agreementId || authLetter._id?.toString?.()?.slice(-8)}
+                          </p>
+                        </div>
+                        <span className={`px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest shrink-0 ${meta.cls}`}>
+                          {meta.label}
+                        </span>
+                      </div>
+
+                      {/* Signed copy actions / preview */}
+                      {authLetter.uploadedDocumentUrl ? (
+                        <div className="space-y-4">
+                          <div className="flex flex-col sm:flex-row gap-3">
+                            <a
+                              href={getDocumentViewUrl(authLetter.uploadedDocumentUrl)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-gray-50 text-secondary border border-gray-200 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-gray-100 transition-colors"
+                            >
+                              <ExternalLink size={14} /> View Signed Document
+                            </a>
+                            {!isDocLocked && (
+                              <a
+                                href={authLetter.fileUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-gray-50 text-secondary border border-gray-200 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-gray-100 transition-colors"
+                              >
+                                <ExternalLink size={14} /> View Generated Copy
+                              </a>
+                            )}
+                          </div>
+
+                          {/* Admin Remarks Input */}
+                          {!isDocLocked && (
+                            <div>
+                              <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-1.5">
+                                Admin Remarks (required for rejection / reupload request)
+                              </label>
+                              <textarea
+                                value={signedDocRemarks}
+                                onChange={e => setSignedDocRemarks(e.target.value)}
+                                placeholder="Enter remarks for the partner..."
+                                rows={2}
+                                className="w-full bg-gray-50 border border-gray-200 rounded-2xl px-4 py-3 text-xs font-bold placeholder:text-gray-300 focus:outline-none focus:border-primary resize-none"
+                              />
+                            </div>
+                          )}
+
+                          {/* Display previously saved remarks */}
+                          {authLetter.adminRemarks && (docStatus === 'rejected' || docStatus === 'reupload_required') && (
+                            <div className="p-4 bg-orange-50 border border-orange-100 rounded-2xl flex items-start gap-3">
+                              <AlertCircle size={16} className="text-orange-500 shrink-0 mt-0.5" />
+                              <div>
+                                <p className="text-[9px] font-black text-orange-700 uppercase tracking-widest mb-1">Previous Remarks</p>
+                                <p className="text-xs font-bold text-orange-800">{authLetter.adminRemarks}</p>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Action Buttons */}
+                          <div className="flex flex-col sm:flex-row gap-2">
+                            {isDocLocked ? (
+                              <button
+                                onClick={async () => {
+                                  setSignedDocActionLoading('unlock');
+                                  await updateDocumentLock(authLetter._id, false, false);
+                                  setSignedDocActionLoading(null);
+                                }}
+                                disabled={!!signedDocActionLoading}
+                                className="flex-1 px-4 py-3 bg-amber-50 text-amber-700 rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-amber-100 transition-colors flex items-center justify-center gap-2"
+                              >
+                                <AlertCircle size={14} /> {signedDocActionLoading === 'unlock' ? 'Unlocking...' : 'Unlock Document'}
+                              </button>
+                            ) : (
+                              <>
+                                <button
+                                  onClick={async () => {
+                                    setSignedDocActionLoading('approve');
+                                    await updateDocumentLock(authLetter._id, true, true, signedDocRemarks || undefined, 'approved');
+                                    setSignedDocRemarks('');
+                                    setSignedDocActionLoading(null);
+                                  }}
+                                  disabled={!!signedDocActionLoading}
+                                  className={`flex-1 px-4 py-3 rounded-xl font-black text-[9px] uppercase tracking-widest flex items-center justify-center gap-2 transition-colors ${
+                                    docStatus === 'approved' ? 'bg-green-500 text-white shadow-lg shadow-green-200' : 'bg-green-50 text-green-700 hover:bg-green-100'
+                                  }`}
+                                >
+                                  <ShieldCheck size={14} /> {signedDocActionLoading === 'approve' ? 'Approving...' : 'Approve & Lock'}
+                                </button>
+                                <button
+                                  onClick={async () => {
+                                    if (!signedDocRemarks.trim()) {
+                                      toast.error('Please enter remarks before requesting a reupload.');
+                                      return;
+                                    }
+                                    setSignedDocActionLoading('reupload');
+                                    await updateDocumentLock(authLetter._id, false, false, signedDocRemarks, 'reupload_required');
+                                    setSignedDocRemarks('');
+                                    setSignedDocActionLoading(null);
+                                  }}
+                                  disabled={!!signedDocActionLoading}
+                                  className={`flex-1 px-4 py-3 rounded-xl font-black text-[9px] uppercase tracking-widest flex items-center justify-center gap-2 transition-colors ${
+                                    docStatus === 'reupload_required' ? 'bg-amber-500 text-white shadow-lg shadow-amber-200' : 'bg-amber-50 text-amber-700 hover:bg-amber-100'
+                                  }`}
+                                >
+                                  <RefreshCw size={14} /> {signedDocActionLoading === 'reupload' ? 'Requesting...' : 'Request Reupload'}
+                                </button>
+                                <button
+                                  onClick={async () => {
+                                    if (!signedDocRemarks.trim()) {
+                                      toast.error('Please enter a reason for rejection.');
+                                      return;
+                                    }
+                                    setSignedDocActionLoading('reject');
+                                    await updateDocumentLock(authLetter._id, false, false, signedDocRemarks, 'rejected');
+                                    setSignedDocRemarks('');
+                                    setSignedDocActionLoading(null);
+                                  }}
+                                  disabled={!!signedDocActionLoading}
+                                  className={`flex-1 px-4 py-3 rounded-xl font-black text-[9px] uppercase tracking-widest flex items-center justify-center gap-2 transition-colors ${
+                                    docStatus === 'rejected' ? 'bg-red-500 text-white shadow-lg shadow-red-200' : 'bg-red-50 text-red-700 hover:bg-red-100'
+                                  }`}
+                                >
+                                  <X size={14} /> {signedDocActionLoading === 'reject' ? 'Rejecting...' : 'Reject'}
+                                </button>
+                              </>
+                            )}
+                          </div>
+
+                          {isDocLocked && (
+                            <p className="text-[10px] text-green-600 font-bold uppercase tracking-widest flex items-center justify-center gap-1">
+                              <CheckCircle2 size={12} /> Document is verified and locked
+                            </p>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="flex flex-col items-center justify-center bg-gray-50 rounded-2xl border border-dashed border-gray-200 p-8 text-center">
+                          <FileText size={32} className="text-gray-200 mb-3" />
+                          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                            Signed copy not yet uploaded
+                          </p>
+                          <p className="text-[10px] text-gray-400 font-bold mt-2">
+                            The partner must download, sign, and upload the document from their dashboard.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+              </div>
+            </motion.div>
+          );
+        })()}
       </div>
 
       {/* Footer / Approval Actions */}
@@ -434,18 +1002,18 @@ export default function HierarchyDetailView({ data, onClose, onStatusUpdate }: H
                    if (reason !== null && reason.trim() !== "") {
                      onStatusUpdate?.(user._id, 'rejected', reason);
                    } else if (reason !== null) {
-                     alert("A reason is required to reject the partner.");
+                     toast.error("A reason is required to reject the partner.");
                    }
                  }}
                  className="px-8 py-4 rounded-2xl border-2 border-red-100 text-red-500 font-black text-[10px] uppercase tracking-widest hover:bg-red-50 transition-all"
                >Reject Partner</button>
                <button 
                  onClick={() => {
-                   const requiredDocs = REQUIRED_DOCS_BY_ROLE[user.role as keyof typeof REQUIRED_DOCS_BY_ROLE] || [];
-                   const allApproved = requiredDocs.every(id => user.documents?.[id]?.status === 'approved');
+                   const requiredDocs = getRequiredDocsForUser(user.role, user.documents, user.vendorType);
+                   const allApproved = requiredDocs.every(id => user.documents?.[id]?.status === 'approved' || user.documents?.[id]?.status === 'exception_approved');
                    
                    if (user.role === 'vendor' && !allApproved) {
-                     alert("Cannot activate vendor: All required documents must be individually approved first. Go to the Compliance tab to verify them.");
+                     toast.error("Cannot activate vendor: All required documents must be individually approved first. Go to the Compliance tab to verify them.");
                      return;
                    }
                    onStatusUpdate?.(user._id, 'active');
@@ -461,7 +1029,7 @@ export default function HierarchyDetailView({ data, onClose, onStatusUpdate }: H
                    if (reason !== null && reason.trim() !== "") {
                      onStatusUpdate?.(user._id, 'suspended', reason);
                    } else if (reason !== null) {
-                     alert("A reason is required to suspend the partner.");
+                     toast.error("A reason is required to suspend the partner.");
                    }
                  }}
                  className="px-8 py-4 rounded-2xl border-2 border-amber-100 text-amber-600 font-black text-[10px] uppercase tracking-widest hover:bg-amber-50 transition-all"
